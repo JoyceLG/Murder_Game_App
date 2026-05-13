@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /games/{code} {
+      // Tout agent authentifié (anonyme) peut lire la partie.
+      allow read: if request.auth != null;
+
+      // Création : seul le créateur, et il doit se déclarer hôte.
+      allow create: if request.auth != null
+                    && request.resource.data.hostId == request.auth.uid;
+
+      // Mise à jour de la méta (statut, minuteur) : réservée à l'hôte.
+      allow update: if request.auth != null
+                    && resource.data.hostId == request.auth.uid;
+
+      allow delete: if false;
+
+      // ---- fiches joueurs ----
+      match /players/{playerId} {
+        allow read: if request.auth != null;
+
+        // Un joueur crée/supprime UNIQUEMENT sa propre fiche.
+        allow create, delete: if request.auth != null && playerId == request.auth.uid;
+
+        // Mise à jour : le joueur lui-même (score, mission après kill), OU l'hôte
+        // (attribution des cibles/missions au lancement). Modèle de confiance
+        // "hôte = organisateur" ; durcir via Cloud Functions si besoin d'anti-triche.
+        allow update: if request.auth != null && (
+          playerId == request.auth.uid ||
+          get(/databases/$(database)/documents/games/$(code)).data.hostId == request.auth.uid
+        );
+      }
+
+      // ---- revendications d'élimination ----
+      match /claims/{attackerId} {
+        allow read: if request.auth != null;
+
+        // L'attaquant crée/supprime sa propre revendication.
+        allow create, delete: if request.auth != null && attackerId == request.auth.uid;
+
+        // Seule la CIBLE peut changer le statut, et rien d'autre que le statut.
+        allow update: if request.auth != null
+                      && resource.data.target == request.auth.uid
+                      && request.resource.data.diff(resource.data).changedKeys().hasOnly(['status']);
+      }
+    }
+  }
+}

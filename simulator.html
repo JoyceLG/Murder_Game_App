@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0E1014">
+<title>MURDER — Simulateur</title>
+<link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+  <div class="sim-bar">
+    <div class="title"><span class="dot"></span>MURDER · SIMULATEUR</div>
+    <div class="grp">Joueurs
+      <button class="step" id="minus">−</button>
+      <span class="count" id="count">4</span>
+      <button class="step" id="plus">+</button>
+    </div>
+    <div class="grp">Latence
+      <input type="range" id="lat" min="0" max="1000" step="50" value="150">
+      <span class="lat" id="latv">150 ms</span>
+    </div>
+    <button class="reset" id="reset">Réinitialiser</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <script type="module">
+    import { MemoryBackend } from "./src/backend-memory.js";
+    import { GameClient } from "./src/game.js";
+    import { mountClient } from "./src/ui.js";
+
+    const grid = document.getElementById("grid");
+    const countEl = document.getElementById("count");
+    const latEl = document.getElementById("lat");
+    const latv = document.getElementById("latv");
+
+    let n = 4;
+    let clients = [];
+    let backend = null;
+
+    async function build() {
+      clients.forEach(c => c.destroy());
+      clients = [];
+      grid.innerHTML = "";
+      backend = new MemoryBackend({ latency: parseInt(latEl.value, 10) });
+
+      // Joueur 1 = hôte ; les autres rejoignent automatiquement avec le code.
+      const host = new GameClient(backend);
+      const code = await host.create("Joueur 1");
+      clients.push(host);
+      for (let i = 2; i <= n; i++) {
+        const c = new GameClient(backend);
+        await c.join(code, "Joueur " + i);
+        clients.push(c);
+      }
+      clients.forEach(c => {
+        const panel = document.createElement("div");
+        panel.className = "panel";
+        grid.appendChild(panel);
+        mountClient(panel, c, { compact: true });
+      });
+    }
+
+    document.getElementById("plus").onclick = () => { if (n < 12) { n++; countEl.textContent = n; build(); } };
+    document.getElementById("minus").onclick = () => { if (n > 2) { n--; countEl.textContent = n; build(); } };
+    document.getElementById("reset").onclick = () => build();
+    latEl.oninput = () => { latv.textContent = latEl.value + " ms"; };
+    latEl.onchange = () => build();
+
+    build();
+  </script>
+</body>
+</html>

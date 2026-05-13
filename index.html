@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1014">
+<title>MURDER</title>
+<link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+  <div class="mast">
+    <div class="brand"><span class="dot"></span><b>MURDER</b></div>
+    <div class="meta" id="mastMeta">DOSSIER // —</div>
+  </div>
+  <div id="banner"></div>
+  <div id="root"></div>
+
+  <script type="module">
+    import { firebaseConfig, USE_EMULATOR } from "./firebase-config.js";
+    import { MemoryBackend } from "./src/backend-memory.js";
+    import { GameClient } from "./src/game.js";
+    import { mountClient } from "./src/ui.js";
+
+    const banner = document.getElementById("banner");
+    const mastMeta = document.getElementById("mastMeta");
+
+    const configured = firebaseConfig && firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("VOTRE");
+    let backend, myId;
+
+    if (configured) {
+      try {
+        const { createFirestoreBackend } = await import("./src/backend-firestore.js");
+        const fb = await createFirestoreBackend(firebaseConfig, { emulator: USE_EMULATOR });
+        backend = fb.backend; myId = fb.uid;
+        mastMeta.textContent = "DOSSIER // FIRESTORE" + (USE_EMULATOR ? " (ÉMULATEUR)" : "");
+        banner.innerHTML = `<div class="banner">Connecté à <b>Firestore</b>${USE_EMULATOR ? " (émulateur local)" : ""} · agent <b>${myId.slice(0,6)}</b></div>`;
+      } catch (e) {
+        console.error(e);
+        banner.innerHTML = `<div class="banner warn">Échec de connexion Firebase — vérifie firebase-config.js et que Firestore + Auth anonyme sont activés.</div>`;
+        throw e;
+      }
+    } else {
+      backend = new MemoryBackend();
+      mastMeta.textContent = "DOSSIER // LOCAL";
+      banner.innerHTML = `<div class="banner warn">Mode local mono-client : pas de vrai multijoueur ici. Renseigne <b>firebase-config.js</b>, ou ouvre <b>simulator.html</b> pour tester N joueurs.</div>`;
+    }
+
+    const client = new GameClient(backend);
+    mountClient(document.getElementById("root"), client, { myId });
+  </script>
+</body>
+</html>
