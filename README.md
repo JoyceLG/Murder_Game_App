@@ -1,111 +1,136 @@
-# MURDER — application multijoueur
+# Murder — jeu multijoueur (FastAPI · architecture hexagonale · DDD · TDD · Docker · Angular · CI/CD)
 
-Jeu du Murder : chaque joueur reçoit une **mission** et une **cible**. Quand il
-accomplit sa mission, la cible **confirme** l'élimination ; si oui → +1 point et
-nouvelle assignation, si non → nouvelle mission. La partie dure un temps fixé par
-l'hôte ; le meilleur score gagne.
+Application web multijoueur de **murder party** : chaque joueur reçoit une cible secrète et une
+mission ; on élimine sa cible, la cible confirme, on marque un point et on reçoit une nouvelle
+cible. Le tout en temps réel.
 
-## Architecture
+Le jeu existait en JavaScript vanilla (voir [`legacy-js/`](legacy-js/)) ; il a été **réécrit en
+architecture hexagonale** côté backend (Python/FastAPI) et **Angular 20** côté frontend.
 
-La logique de jeu (`src/game.js`) ne dépend que d'une **interface backend
-temps-réel** (`watchDoc`, `watchCollection`, `getDoc`, `setDoc`, `updateDoc`,
-`deleteDoc`). Deux implémentations interchangeables :
+> **Le fil rouge** : dans la version JS, la résolution d'une élimination était calculée *dans le
+> navigateur de l'attaquant* (« confiance au client », limite assumée dans l'ancien README). La
+> réécriture **centralise cette autorité côté serveur** : c'est le cas d'usage `ConfirmClaim`,
+> déclenché par la **cible**, qui résout le score de façon autoritaire. La migration *corrige* le
+> défaut, et c'est exactement ce que prouve le test `confirm by non-target → 403`.
 
-- `src/backend-memory.js` — backend **en mémoire** avec latence simulable, pour
-  le **simulateur** (N joueurs dans un seul onglet, sans rien déployer).
-- `src/backend-firestore.js` — backend **Firestore** de production (auth anonyme),
-  compatible émulateur Firebase.
+---
 
-Le même `GameClient` tourne sur les deux. Migrer de l'un à l'autre ne touche
-jamais la logique de jeu.
+## Stack
+
+| Couche | Techno |
+|--------|--------|
+| API | **FastAPI** (async), Pydantic, WebSocket, OpenAPI/Swagger natif |
+| Architecture | **Ports & adapters (hexagonale)**, **DDD**, **TDD** (pytest, 100 % de couverture) |
+| Persistance | Adapter **in-memory** (tests) **+ PostgreSQL** (SQLAlchemy 2.0 async / asyncpg) |
+| Front | **Angular 20** (standalone, signals, control-flow), RxJS pour le flux WebSocket |
+| Infra | **Docker** multi-stage, **docker-compose** (front + api + postgres), **GitHub Actions** |
+
+---
+
+## Architecture hexagonale
 
 ```
-murder-app/
-├── index.html              app joueur (Firestore si configuré, sinon mémoire)
-├── simulator.html          harnais de test multijoueur (mémoire)
-├── firebase-config.js      clés de TON projet Firebase (à remplir)
-├── firestore.rules         règles de sécurité
-└── src/
-    ├── game.js             logique de jeu (agnostique du backend)
-    ├── backend-memory.js   backend temps-réel en mémoire
-    ├── backend-firestore.js backend Firestore
-    ├── ui.js               rendu de l'interface
-    └── style.css           thème "dossier d'agence"
+                 driving (entrée)                          driven (sortie)
+        ┌───────────────────────────┐          ┌──────────────────────────────┐
+HTTP ─► │  api/ (FastAPI, WebSocket) │          │ adapters/                    │
+        │  routes · schemas · DI     │          │  InMemoryGameRepository      │
+        └─────────────┬─────────────┘          │  SqlGameRepository (Postgres)│
+                      │ appelle                 │  WebSocketNotifier           │
+                      ▼                          └──────────────▲───────────────┘
+        ┌───────────────────────────┐   implémentent les ports │
+        │ application/ (cas d'usage) │ ─────────────────────────┘
+        │  CreateGame · StartGame …  │   dépend des ports (interfaces)
+        └─────────────┬─────────────┘
+                      │ utilise
+                      ▼
+        ┌───────────────────────────┐
+        │ domain/  (cœur métier pur) │  AUCUN import de framework
+        │  models · rules · missions │
+        └───────────────────────────┘
 ```
 
-## 1) Tester le multijoueur SANS rien déployer (simulateur)
+**Règle de dépendance** : tout pointe vers l'intérieur. `domain` ne dépend de rien ; `application`
+dépend de `domain` + des `ports` (interfaces `Protocol`) ; `adapters` et `api` dépendent vers
+l'intérieur, jamais l'inverse. Conséquence concrète : **passer d'in-memory à PostgreSQL ne change
+qu'une variable d'environnement** (`DATABASE_URL`) — aucune ligne de métier n'est touchée.
 
-Les modules ES nécessitent un serveur HTTP (pas d'ouverture en `file://`).
+```
+Murder_app/
+├── legacy-js/      # le prototype JavaScript d'origine (raconte la migration)
+├── murder-api/     # backend Python — src/{domain,ports,application,adapters,api} + tests/
+├── murder-front/   # front Angular 20 — core/{models,services,guards}, features/, shared/
+├── docker-compose.yml
+└── .github/workflows/ci.yml
+```
+
+---
+
+## Lancer en une commande
 
 ```bash
-cd murder-app
-python3 -m http.server 8000
-# puis ouvre http://localhost:8000/simulator.html
+docker compose up --build
 ```
 
-Dans le simulateur : règle le **nombre de joueurs** et la **latence réseau**,
-le Joueur 1 est l'hôte (règle la durée, clique « Lancer »). Tous les panneaux se
-synchronisent en direct : clique « J'ai éliminé ma cible » sur un panneau, puis
-« Confirmer » sur le panneau de la cible, et regarde les scores bouger partout.
+- Front : <http://localhost:8080>
+- API : <http://localhost:8000> · **Swagger : <http://localhost:8000/docs>**
+- PostgreSQL : `localhost:5432`
 
-## 2) Brancher le vrai backend (Firestore)
+Le front (servi par nginx) reverse-proxie `/games` et le WebSocket vers l'API : une seule origine,
+pas de CORS. L'API applique le schéma au démarrage et bascule sur PostgreSQL via `DATABASE_URL`.
 
-1. Crée un projet sur https://console.firebase.google.com
-2. **Firestore Database** → créer (mode production).
-3. **Authentication** → activer le fournisseur **Anonyme**.
-4. Récupère la config SDK (Paramètres du projet → Tes applications → Web) et
-   colle-la dans `firebase-config.js`.
-5. Déploie les règles : `firestore.rules`.
+---
 
-L'app (`index.html`) détecte la config et bascule automatiquement sur Firestore.
-L'identifiant joueur est l'uid d'auth anonyme — c'est ce que vérifient les règles.
+## Développement & tests
 
-### Émulateur Firebase (dev local, sans toucher la prod)
-
+### Backend (`murder-api/`)
 ```bash
-npm install -g firebase-tools
-firebase login
-firebase init emulators      # coche Firestore + Authentication
-firebase emulators:start
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn src.api.main:app --reload        # API + Swagger sur :8000 (in-memory par défaut)
+pytest                                    # tests + couverture (gate à 85 %, atteint 100 %)
+ruff check . && ruff format --check .     # lint + format
 ```
+Les tests d'intégration de l'adapter SQL tournent sur **SQLite** par défaut (rapides, sans Docker) ;
+pointez `TEST_DATABASE_URL` sur un PostgreSQL pour exercer le même adapter sur la cible de prod.
 
-Mets `USE_EMULATOR = true` dans `firebase-config.js`, sers le dossier
-(`python3 -m http.server`) et ouvre `index.html` dans plusieurs onglets : vrai
-temps réel, données jetables, zéro coût.
-
-### Déployer les règles + l'hébergement
-
+### Frontend (`murder-front/`)
 ```bash
-firebase deploy --only firestore:rules
-firebase deploy --only hosting       # si tu configures Firebase Hosting
+npm install
+npm start                                 # ng serve sur :4200 (tape sur l'API :8000)
+npm test -- --watch=false --browsers=ChromeHeadless
+npm run build                             # build de prod (bascule sur les URLs relatives)
 ```
 
-## Modèle de données (Firestore)
+---
 
-```
-games/{code}                     { code, hostId, status, durationSec, startAt, endAt }
-games/{code}/players/{uid}       { name, score, mission, targetId, joinedAt }
-games/{code}/claims/{attackerUid}{ atk, atkName, target, mission, status, ts }
-```
+## Choix techniques (et pourquoi)
 
-Anti-conflit : un joueur n'écrit que sa propre fiche `players/{uid}` ; l'hôte
-écrit la méta ; seule la cible modifie le `status` d'une `claim`.
+- **FastAPI plutôt que Flask** : typage Pydantic de bout en bout (DTO d'entrée/sortie validés),
+  `async` natif (cohérent avec un repository asyncpg et un canal WebSocket), et OpenAPI/Swagger
+  généré automatiquement.
+- **Ports asynchrones** : `GameRepository` et `RealtimeNotifier` sont des `Protocol` `async`. Le
+  domaine reste **synchrone et pur** ; seules les frontières I/O sont asynchrones.
+- **Aléa injecté** (`Picker`) : les règles ne connaissent pas `random`, ce qui rend le domaine
+  **déterministe en test** (>90 % visé, 100 % atteint sur `domain/`).
+- **WebSocket** : remplace les `watchDoc`/`watchCollection` de Firestore. Le serveur pousse l'état
+  complet ; le client Angular dérive sa propre vue (cible, mission, réclamation entrante) — port
+  fidèle du `_recompute` JS, via des signals.
+- **DTO ≠ entités** : un mapper unique (`to_game_out`) est la seule frontière anti-corruption.
 
-## Limites connues / pistes de durcissement
+## Limites assumées
 
-- **Scoring de confiance** : l'attaquant incrémente son propre score. Pour de
-  l'anti-triche fort, faire valider le point par une **Cloud Function**
-  (transaction serveur) plutôt que côté client.
-- **Fin de partie** déclenchée par l'hôte au temps écoulé ; une Cloud Function
-  planifiée la rendrait indépendante de la présence de l'hôte.
-- **Course** sur la confirmation : avec Firestore, encapsuler la résolution dans
-  une `runTransaction` supprime la fenêtre résiduelle.
-- Pas d'arrivée en cours de partie ni de re-désignation si un joueur quitte.
+- **WebSocket mono-worker** : les connexions sont en mémoire de processus ⇒ `uvicorn --workers 1`.
+  Une mise à l'échelle multi-worker nécessiterait un backplane pub/sub (Redis). Firestore jouait
+  ce rôle dans la version JS.
+- **Identité non signée** : le `player_id` est généré serveur (uuid4 inguessable) et transmis via
+  l'en-tête `X-Player-Id`. Suffisant pour la démo ; un **JWT signé** est l'étape de durcissement.
+- **Fin de partie paresseuse** : l'état « terminé » est calculé à la lecture (pas de scheduler).
+  En production, une tâche de fond gérerait l'expiration sans lecture.
 
-## Vers Android
+---
 
-PWA jouable d'abord (manifest + service worker), puis empaquetage :
-- **TWA** (Trusted Web Activity) via Bubblewrap → Play Store, ou
-- **Capacitor** pour un wrapper natif avec accès device.
+## CI/CD
 
-La base web reste identique ; seul l'emballage change.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) : sur chaque push/PR →
+`ruff` + `pytest --cov` (avec un service **PostgreSQL** pour les tests d'intégration), `npm run build`
++ tests Angular en ChromeHeadless, puis **build des images Docker**.

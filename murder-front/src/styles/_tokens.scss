@@ -1,0 +1,18 @@
+// Design tokens — ported verbatim from legacy-js/src/style.css ("dossier d'agence" theme).
+:root {
+  --bg: #0e1014;
+  --surface: #171a21;
+  --surface-2: #1f232c;
+  --ink: #eceae3;
+  --muted: #878d99;
+  --faint: #565c68;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --signal: #e5484d;
+  --signal-deep: #7d1d20;
+  --ok: #3dd68c;
+  --amber: #e8a93c;
+  --radius: 14px;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}

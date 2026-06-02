@@ -1,0 +1,251 @@
+// Reset, layout shell, typography, cards & controls — ported from legacy style.css.
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+body {
+  background:
+    radial-gradient(120% 80% at 50% -10%, #15191f 0%, var(--bg) 60%) fixed,
+    var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.45;
+}
+
+/* ---- masthead ---- */
+.mast {
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: max(env(safe-area-inset-top), 16px) 18px 14px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  letter-spacing: 0.18em;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+.brand .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--signal);
+  box-shadow: 0 0 14px var(--signal);
+}
+.mast .meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  letter-spacing: 0.12em;
+}
+
+/* ---- client container ---- */
+.client {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 6px 18px calc(env(safe-area-inset-bottom) + 24px);
+  display: block;
+}
+.idline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 4px 2px 12px;
+}
+.idline .code {
+  color: var(--signal);
+}
+
+/* ---- typography ---- */
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+h1 {
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  font-weight: 680;
+}
+h2 {
+  font-size: 13px;
+  font-family: var(--mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 12px;
+  font-weight: 500;
+}
+p.lead {
+  color: var(--muted);
+  margin: 0 0 18px;
+  font-size: 15px;
+}
+.muted {
+  color: var(--muted);
+}
+.center {
+  text-align: center;
+}
+.foot {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+  letter-spacing: 0.1em;
+  text-align: center;
+  margin-top: 10px;
+}
+
+/* ---- cards & controls ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+.card + .card,
+.idline + .card,
+.hud + .dossier,
+.dossier + .card,
+.card + button,
+.hud + .card {
+  margin-top: 14px;
+}
+label.field {
+  display: block;
+  margin: 0 0 14px;
+}
+label.field .lbl {
+  display: block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 7px;
+}
+input {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  padding: 13px 14px;
+  border-radius: 10px;
+  outline: none;
+}
+input.code {
+  font-family: var(--mono);
+  letter-spacing: 0.4em;
+  text-transform: uppercase;
+  font-size: 22px;
+  text-align: center;
+}
+input:focus {
+  border-color: var(--line-strong);
+  background: #222732;
+}
+.sep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--faint);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  margin: 4px 0 14px;
+}
+.sep::before,
+.sep::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.btn {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  font: inherit;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 15px 16px;
+  cursor: pointer;
+  color: var(--ink);
+  background: var(--surface-2);
+  transition:
+    transform 0.06s ease,
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.btn:active {
+  transform: scale(0.985);
+}
+.btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.btn.primary {
+  background: var(--ink);
+  color: #0c0e12;
+  border-color: var(--ink);
+}
+.btn.ghost {
+  background: transparent;
+}
+.btn.danger {
+  background: var(--signal);
+  border-color: var(--signal);
+  color: #fff;
+}
+.btn.ok {
+  background: var(--ok);
+  border-color: var(--ok);
+  color: #06291a;
+}
+.btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn + .btn {
+  margin-top: 10px;
+}
+.client > .btn {
+  margin-top: 14px;
+}
+.btn-row {
+  display: flex;
+  gap: 10px;
+}
+.btn-row .btn {
+  margin-top: 0;
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

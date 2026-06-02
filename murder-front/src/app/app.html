@@ -1,0 +1,14 @@
+<header class="mast">
+  <div class="brand"><span class="dot"></span><b>MURDER</b></div>
+  <div class="meta">DOSSIER // {{ session.code() || '—' }}</div>
+</header>
+
+<main class="client">
+  <router-outlet />
+</main>
+
+@if (toast.current(); as t) {
+  <div id="toast" class="show" [class.bad]="t.kind === 'bad'" [class.good]="t.kind === 'good'">
+    {{ t.text }}
+  </div>
+}
