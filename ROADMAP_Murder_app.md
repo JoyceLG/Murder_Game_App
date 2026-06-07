@@ -23,6 +23,8 @@
 
 Total réaliste en projet perso : **3 à 4 semaines** à temps partiel. Les phases 1 à 4 couvrent l'essentiel ; Angular (6) est le bonus.
 
+> **Phases 0→7 (migration) : terminées.** La suite — fondations « mobile-ready » (**Phase 8**, à traiter dès maintenant) puis déploiement des apps Android/iOS — est décrite en fin de document : voir [« Feuille de route — Déploiement mobile (Android + iOS) »](#feuille-de-route--déploiement-mobile-android--ios).
+
 ---
 
 ## Architecture cible (hexagonale)
@@ -274,9 +276,112 @@ Tâches :
 
 ---
 
-## Conseils de séquencement
 
-- **Ne saute pas le TDD des phases 1 et 3** : c'est le cœur de l'architecture hexagonale.
-- Fais des **commits petits et parlants** (`test: assignation cible`, `feat: endpoint create game`).
-- **Documente tes choix au fil de l'eau** dans le README, pas à la fin.
-- Priorité phases 1→4 ; les phases suivantes enrichissent progressivement le projet.
+# Feuille de route — Déploiement mobile (Android + iOS)
+
+**Objectif final** : distribuer Murder_app comme **apps natives Android + iOS via Capacitor** (le SPA Angular empaqueté dans une WebView native, publiable sur les stores), avec **notifications push** (jeu temps réel : être prévenu d'une élimination réclamée ou d'une confirmation à valider).
+
+**Viabilité : l'architecture est prête, sans refonte.** Le backend FastAPI hexagonal est agnostique au client (une app mobile = un client REST + WebSocket de plus, le CORS est déjà activé) ; le front Angular 20 est exactement ce que Capacitor empaquette en réutilisant 100 % du code UI ; la session en `localStorage` fonctionne telle quelle en WebView. Le travail est donc surtout **opérationnel** (hébergement, durcissement, packaging), pas applicatif.
+
+> **Séquencement** : seule la **Phase 8** est à traiter maintenant (anti-dette). Les **phases 9→13** se lanceront **après la prochaine série de features**.
+
+## Vue d'ensemble (phases mobile)
+
+| Phase | Contenu | Quand |
+|------|---------|-------|
+| 8 | Fondations « mobile-ready » | **Maintenant** |
+| — | **Lot de features (issues #10–#16)** | **En cours** |
+| 9 | Héberger le backend (HTTPS/WSS) | Après features |
+| 10 | Durcissement multi-origine + auth JWT | Après features |
+| 11 | Intégration Capacitor | Après features |
+| 12 | Notifications push | Après features |
+| 13 | Publication stores | Après features |
+
+---
+
+## Phase 8 — Fondations « mobile-ready » 
+
+**But** : poser le minimum qui évite d'accumuler de la dette technique pendant qu'on développe les prochaines features. Tout le reste peut attendre, **pas ça**.
+
+1. **Garde-fous architecturaux documentés** (fait) dans [CLAUDE.md](CLAUDE.md) — section « Mobile-ready guardrails ». Chaque nouvelle feature les respecte par construction : URLs jamais en dur (toujours via `environment.apiBase`/`wsBase`), identité via header `X-Player-Id`, pas d'API navigateur sans fallback WebView, responsive + safe-areas, backend 12-factor, notifications derrière un port.
+2. **CORS par allowlist via env var.** Remplacer `allow_origins=["*"]` ([murder-api/src/api/main.py](murder-api/src/api/main.py)) par une liste lue dans `ALLOWED_ORIGINS` ([murder-api/src/api/config.py](murder-api/src/api/config.py)), incluant à terme les origines WebView (`capacitor://localhost`, `https://localhost`). Changement localisé, supprime le wildcard non-sûr.
+3. **Config runtime du front centralisée.** `apiBase`/`wsBase` restent l'unique source des URLs ; interdire tout nouvel usage de `location.host`/`location.origin` hors de `core/services/realtime.ts`.
+
+> Notes : 8.2 et 8.3 sont de petits chantiers à planifier (non bloquants tant que les garde-fous 8.1 sont respectés). L'auth JWT, plus lourde, est repoussée en Phase 10 car elle reste localisée derrière `dependencies.player_id` et n'accumule donc pas de dette.
+
+---
+
+## Lot de features — avant déploiement mobile (issues #10–#16)
+
+**But** : étoffer le jeu avant de lancer le déploiement mobile (Phase 9+). Ce lot s'intercale entre
+la Phase 8 et la Phase 9. Toutes les features respectent les garde-fous « mobile-ready » (Phase 8).
+
+**Méthode de travail** (cf. `CLAUDE.md` › *Dev workflow*) : **une branche par issue** cuttée sur
+`main` (`feat/<n>-<slug>`), **tests à jour + nouveaux tests** (gate 85 % back, ChromeHeadless front),
+**scénarios de validation documentés dans le wiki GitHub** (une page par issue), **PR vers `main`**,
+**revue complète + validation utilisateur avant merge** (squash).
+
+| Issue | Feature | Dépend de |
+|-------|---------|-----------|
+| [#10](https://github.com/JoyceLG/Murder_app/issues/10) | i18n — infrastructure multilingue FR/EN + extraction des textes | — |
+| [#11](https://github.com/JoyceLG/Murder_app/issues/11) | Config de partie : max points & max joueurs + endpoint config hôte | — |
+| [#12](https://github.com/JoyceLG/Murder_app/issues/12) | Missions : bibliothèque locale (localStorage) + onglet de configuration | #10 |
+| [#13](https://github.com/JoyceLG/Murder_app/issues/13) | Missions : pool de partie (contrib. tous joueurs, mode augmenter/remplacer) | #11, #12 |
+| [#14](https://github.com/JoyceLG/Murder_app/issues/14) | i18n — traduire le catalogue de missions par défaut (catalogue → clés) | #10, #13 |
+| [#15](https://github.com/JoyceLG/Murder_app/issues/15) | Gameplay : accusé de réception attaquant avant la prochaine mission | — |
+| [#16](https://github.com/JoyceLG/Murder_app/issues/16) | UX : animations (attaqué / succès / refus / nouvelle mission) | #15 |
+
+**Ordre conseillé** : #10 → #11 → #12 → #13 → #14 → #15 → #16 (l'i18n d'abord pour ne pas
+re-traduire les textes ajoutés ensuite). Milestone GitHub : *« Features pré-déploiement mobile »*.
+
+---
+
+## Phase 9 — Héberger le backend en HTTPS/WSS
+
+**But** : rendre l'API joignable par une app mobile (un `docker-compose` local ne suffit pas).
+
+1. Déployer sur un hébergeur qui termine le TLS automatiquement — **Fly.io** ou **Railway** (Docker natif, Postgres managé, gratuit/peu cher). Réutiliser le [murder-api/Dockerfile](murder-api/Dockerfile) existant (déjà prod-ready, healthcheck inclus).
+2. Provisionner PostgreSQL et injecter `DATABASE_URL` → bascule in-memory → Postgres sans toucher au code métier.
+3. Vérifier le WebSocket derrière le TLS (`wss://…/games/{code}/live`).
+4. Garder `uvicorn --workers 1` (contrainte WebSocket en mémoire process) tant que la charge le permet.
+
+---
+
+## Phase 10 — Durcissement multi-origine + auth JWT
+
+**But** : sécuriser avant toute exposition publique.
+
+1. Finaliser l'allowlist CORS (Phase 8.2) avec les vraies origines de prod + WebView.
+2. **JWT** : signer le `player_id` côté serveur (uuid4 → JWT signé), vérifié dans `dependencies.player_id` ([murder-api/src/api/dependencies.py](murder-api/src/api/dependencies.py)) — empêche l'usurpation par `X-Player-Id` forgé. Étendre le garde-fou de test existant (« confirm by non-target → 403 »).
+
+---
+
+## Phase 11 — Intégration Capacitor
+
+**But** : produire la première app installable (Android, puis iOS).
+
+1. Dans `murder-front/` (toolchain Node 20 sur le PATH) : ajouter `@capacitor/core`, `@capacitor/cli`, puis `@capacitor/android` et `@capacitor/ios`.
+2. `npx cap init` ; `webDir` = `dist/murder-front/browser`.
+3. Créer un environnement Capacitor avec des **URLs absolues** (`apiBase: 'https://api.<domaine>'`, `wsBase: 'wss://api.<domaine>'`) — indispensable car en WebView `window.location` pointe sur `capacitor://localhost`.
+4. Build Angular → `npx cap sync` → `npx cap add android` / `add ios` ; compiler via Android Studio / Xcode.
+5. Tester sur **appareil réel** : créer/rejoindre une partie, réclamer/confirmer une élimination, push live via WebSocket, survie de session après fermeture/réouverture de l'app.
+6. iOS : compilation/publication exigent **macOS + Xcode** et un **compte Apple Developer** (99 $/an).
+
+---
+
+## Phase 12 — Notifications push
+
+**But** : prévenir le joueur hors-app (élimination à confirmer, confirmation reçue).
+
+1. Côté app : plugin `@capacitor/push-notifications` ; intégration **FCM** (Android) et **APNs** (iOS).
+2. Côté backend : enregistrer les tokens d'appareil par joueur, et **émettre un push** aux moments clés. Ajouter un **port `PushNotifier`** à côté de `RealtimeNotifier` et le déclencher là où le notifier temps réel l'est déjà — dans les cas d'usage `ClaimElimination` / `ConfirmClaim` — pour rester dans le pattern hexagonal.
+
+---
+
+## Phase 13 — Publication stores
+
+**But** : mettre les apps en ligne.
+
+1. **Android** : keystore de signature, build AAB, fiche Google Play Console (~25 $ une fois).
+2. **iOS** : provisioning/signing Xcode, App Store Connect, fiche App Store.
+3. Icônes / splash via `@capacitor/assets` ; politique de confidentialité ; tests internes avant release publique.
