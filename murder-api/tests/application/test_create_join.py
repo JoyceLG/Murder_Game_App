@@ -2,7 +2,7 @@ import pytest
 
 from src.application.create_game import CreateGame
 from src.application.join_game import JoinGame
-from src.domain.errors import DomainError, GameAlreadyStarted, GameNotFound
+from src.domain.errors import DomainError, GameAlreadyStarted, GameNotFound, TooManyPlayers
 from src.domain.models import GameStatus
 from tests.builders import make_game
 from tests.doubles import FixedCodes, SequenceIds
@@ -68,3 +68,12 @@ async def test_join_after_start_raises_already_started(repo, clock, notifier):
     uc = JoinGame(repo=repo, ids=SequenceIds("p2"), clock=clock, notifier=notifier)
     with pytest.raises(GameAlreadyStarted):
         await uc.execute("ABCD", "Bob")
+
+
+async def test_join_when_lobby_full_raises_too_many_players(repo, clock, notifier):
+    game = make_game(["h", "p2"], code="ABCD", host="h")
+    game.max_players = 2
+    await repo.save(game)
+    uc = JoinGame(repo=repo, ids=SequenceIds("p3"), clock=clock, notifier=notifier)
+    with pytest.raises(TooManyPlayers):
+        await uc.execute("ABCD", "Carol")

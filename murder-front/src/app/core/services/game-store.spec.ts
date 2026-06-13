@@ -20,6 +20,8 @@ function runningState(partial: Partial<GameStateDto> = {}): GameStateDto {
     start_at: 0,
     end_at: Date.now() + 90_000,
     remaining_sec: 90,
+    max_players: 12,
+    max_score: null,
     players,
     claims: [],
     ranking: [players[0], players[1]],

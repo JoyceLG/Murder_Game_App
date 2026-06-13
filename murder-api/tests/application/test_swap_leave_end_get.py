@@ -127,6 +127,19 @@ async def test_get_game_running_not_expired_stays_running(repo, clock, picker):
     assert result.status is GameStatus.RUNNING
 
 
+async def test_get_game_marks_ended_when_score_cap_reached(repo, clock, picker):
+    game = make_running(clock, picker)  # clock not expired
+    game.max_score = 3
+    game.players["h"].score = 3
+    await repo.save(game)
+    uc = GetGame(repo=repo, clock=clock)
+
+    result = await uc.execute("ABCD")
+
+    assert result.status is GameStatus.ENDED
+    assert (await repo.get("ABCD")).status is GameStatus.ENDED  # persisted
+
+
 async def test_get_game_unknown_raises_game_not_found(repo, clock):
     uc = GetGame(repo=repo, clock=clock)
     with pytest.raises(GameNotFound):

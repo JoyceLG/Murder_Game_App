@@ -21,6 +21,14 @@ class NotEnoughPlayers(DomainError):
     """A game needs at least two players to start."""
 
 
+class TooManyPlayers(DomainError):
+    """The lobby has reached its player cap; no more players may join."""
+
+
+class InvalidGameConfig(DomainError):
+    """The requested game configuration is not acceptable (e.g. cap below current players)."""
+
+
 class PlayerNotFound(DomainError):
     """No such player in this game."""
 

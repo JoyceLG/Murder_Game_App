@@ -36,6 +36,8 @@ def to_game_out(game: Game, now_ms: int) -> GameOut:
         start_at=game.start_at,
         end_at=game.end_at,
         remaining_sec=remaining,
+        max_players=game.max_players,
+        max_score=game.max_score,
         players=[player_out(p) for p in game.players.values()],
         claims=[claim_out(c) for c in game.claims.values()],
         ranking=[player_out(p) for p in game.ranking()],

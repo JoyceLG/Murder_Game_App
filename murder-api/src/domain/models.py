@@ -44,6 +44,9 @@ class Claim:
     ts: int = 0  # unix ms
 
 
+DEFAULT_MAX_PLAYERS = 12
+
+
 @dataclass
 class Game:
     code: str
@@ -52,12 +55,24 @@ class Game:
     duration_sec: int = 0
     start_at: int = 0  # unix ms
     end_at: int = 0  # unix ms
+    max_players: int = DEFAULT_MAX_PLAYERS
+    max_score: int | None = None  # None = no score cap; the game then ends on time only
     players: dict[str, Player] = field(default_factory=dict)
     claims: dict[str, Claim] = field(default_factory=dict)
 
     def is_time_up(self, now_ms: int) -> bool:
         """True once the running clock has reached end_at (JS: now() >= endAt)."""
         return self.end_at > 0 and now_ms >= self.end_at
+
+    def is_full(self) -> bool:
+        """True once the lobby has reached its player cap."""
+        return len(self.players) >= self.max_players
+
+    def score_cap_reached(self) -> bool:
+        """True when a score cap is set and at least one player has reached it."""
+        return self.max_score is not None and any(
+            p.score >= self.max_score for p in self.players.values()
+        )
 
     def ranking(self) -> list[Player]:
         """Players sorted by score descending. Stable: ties keep insertion (join) order."""

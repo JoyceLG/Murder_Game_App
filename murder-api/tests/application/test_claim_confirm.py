@@ -9,7 +9,7 @@ from src.domain.errors import (
     NotTheClaimTarget,
     PlayerNotFound,
 )
-from src.domain.models import ClaimStatus
+from src.domain.models import ClaimStatus, GameStatus
 from tests.application.conftest import make_running
 from tests.builders import make_game
 
@@ -79,6 +79,20 @@ async def test_confirm_claim_by_target_confirmed_scores_and_reassigns(
     assert result.players["h"].target_id != "p2"  # reassigned away from the eliminated target
     assert "h" not in result.claims
     assert (await repo.get("ABCD")).players["h"].score == 1
+
+
+async def test_confirm_claim_reaching_score_cap_ends_the_game(repo, clock, picker, notifier):
+    game = make_running(clock, picker)  # h targets p2 (FirstPicker)
+    game.max_score = 1
+    await repo.save(game)
+    await ClaimElimination(repo=repo, clock=clock, notifier=notifier).execute("ABCD", "h")
+    confirm = ConfirmClaim(repo=repo, clock=clock, picker=picker, notifier=notifier)
+
+    result = await confirm.execute("ABCD", "h", "p2", confirmed=True)
+
+    assert result.players["h"].score == 1
+    assert result.status is GameStatus.ENDED  # cap reached -> ended in the same response
+    assert (await repo.get("ABCD")).status is GameStatus.ENDED
 
 
 async def test_confirm_claim_by_target_denied_changes_mission_only(repo, clock, picker, notifier):

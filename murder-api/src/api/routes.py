@@ -17,6 +17,7 @@ from src.api.dependencies import (
     player_id,
     start_game_uc,
     swap_uc,
+    update_config_uc,
 )
 from src.api.mappers import claim_out, to_game_out
 from src.application.claim_elimination import ClaimElimination
@@ -28,6 +29,7 @@ from src.application.join_game import JoinGame
 from src.application.leave_game import LeaveGame
 from src.application.start_game import StartGame
 from src.application.swap_mission import SwapMission
+from src.application.update_config import UpdateGameConfig
 from src.ports.clock import Clock
 
 router = APIRouter()
@@ -68,6 +70,18 @@ async def start_game(
     clock: Clock = Depends(get_clock),
 ) -> schemas.GameOut:
     game = await uc.execute(code, pid, body.duration_min)
+    return to_game_out(game, clock.now_ms())
+
+
+@router.patch("/games/{code}/config", response_model=schemas.GameOut)
+async def update_config(
+    code: str,
+    body: schemas.UpdateGameConfigIn,
+    pid: str = Depends(player_id),
+    uc: UpdateGameConfig = Depends(update_config_uc),
+    clock: Clock = Depends(get_clock),
+) -> schemas.GameOut:
+    game = await uc.execute(code, pid, body.max_players, body.max_score)
     return to_game_out(game, clock.now_ms())
 
 

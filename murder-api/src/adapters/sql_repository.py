@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import StaticPool
 
-from src.domain.models import Claim, ClaimStatus, Game, GameStatus, Player
+from src.domain.models import DEFAULT_MAX_PLAYERS, Claim, ClaimStatus, Game, GameStatus, Player
 
 
 class Base(DeclarativeBase):
@@ -35,6 +35,8 @@ class GameRow(Base):
     duration_sec: Mapped[int] = mapped_column(Integer, default=0)
     start_at: Mapped[int] = mapped_column(BigInteger, default=0)
     end_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    max_players: Mapped[int] = mapped_column(Integer, default=DEFAULT_MAX_PLAYERS)
+    max_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class PlayerRow(Base):
@@ -73,6 +75,8 @@ def _to_domain(game_row: GameRow, player_rows: list[PlayerRow], claim_rows: list
         duration_sec=game_row.duration_sec,
         start_at=game_row.start_at,
         end_at=game_row.end_at,
+        max_players=game_row.max_players,
+        max_score=game_row.max_score,
     )
     for row in player_rows:
         game.players[row.id] = Player(
@@ -141,6 +145,8 @@ class SqlGameRepository:
             game_row.duration_sec = game.duration_sec
             game_row.start_at = game.start_at
             game_row.end_at = game.end_at
+            game_row.max_players = game.max_players
+            game_row.max_score = game.max_score
             await session.flush()
 
             # Replace the aggregate's children wholesale.

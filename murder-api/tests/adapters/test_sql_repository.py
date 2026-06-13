@@ -92,6 +92,23 @@ async def test_get_orders_players_by_join_time(repo):
     assert list(loaded.players) == ["zoe", "amy", "max"]
 
 
+async def test_config_caps_round_trip(repo):
+    game = make_game(["a", "b"], code="WXYZ")
+    game.max_players = 6
+    game.max_score = 10
+    await repo.save(game)
+    loaded = await repo.get("WXYZ")
+    assert loaded.max_players == 6
+    assert loaded.max_score == 10
+
+
+async def test_default_caps_round_trip(repo):
+    await repo.save(make_game(["a", "b"], code="WXYZ"))
+    loaded = await repo.get("WXYZ")
+    assert loaded.max_players == 12
+    assert loaded.max_score is None
+
+
 async def test_status_enum_round_trips(repo):
     game = make_game(["a", "b"], code="WXYZ")
     game.status = GameStatus.RUNNING

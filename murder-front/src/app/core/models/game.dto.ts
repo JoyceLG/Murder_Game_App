@@ -28,6 +28,8 @@ export interface GameStateDto {
   start_at: number;
   end_at: number;
   remaining_sec: number;
+  max_players: number;
+  max_score: number | null;
   players: PlayerDto[];
   claims: ClaimDto[];
   ranking: PlayerDto[];

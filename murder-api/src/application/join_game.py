@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application._support import get_game_or_404
-from src.domain.errors import GameAlreadyStarted
+from src.domain.errors import GameAlreadyStarted, TooManyPlayers
 from src.domain.models import Game, GameStatus, Player
 from src.ports.clock import Clock
 from src.ports.identifiers import IdGenerator
@@ -24,6 +24,8 @@ class JoinGame:
         game = await get_game_or_404(self.repo, code)
         if game.status is not GameStatus.LOBBY:
             raise GameAlreadyStarted(code)
+        if game.is_full():
+            raise TooManyPlayers()
         player_id = self.ids.new_id()
         game.players[player_id] = Player(id=player_id, name=name, joined_at=self.clock.now_ms())
         await self.repo.save(game)

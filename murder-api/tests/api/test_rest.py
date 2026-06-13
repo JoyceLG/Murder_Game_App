@@ -96,6 +96,55 @@ def test_confirm_by_non_target_returns_403(client):
     assert response.json()["error"] == "NotTheClaimTarget"
 
 
+def test_update_config_by_host_sets_caps_and_is_visible(client):
+    code, host = new_game(client, "Alice")
+    join(client, code, "Bob")
+    response = client.patch(
+        f"/games/{code}/config", json={"max_players": 6, "max_score": 5}, headers={HEADER: host}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["max_players"] == 6
+    assert body["max_score"] == 5
+    # visible to anyone reading the game state
+    assert client.get(f"/games/{code}").json()["max_score"] == 5
+
+
+def test_update_config_by_non_host_returns_403(client):
+    code, _ = new_game(client, "Alice")
+    bob = join(client, code, "Bob")
+    response = client.patch(
+        f"/games/{code}/config", json={"max_players": 6, "max_score": 5}, headers={HEADER: bob}
+    )
+    assert response.status_code == 403
+    assert response.json()["error"] == "NotTheHost"
+
+
+def test_join_beyond_max_players_returns_409(client):
+    code, host = new_game(client, "Alice")
+    join(client, code, "Bob")
+    client.patch(f"/games/{code}/config", json={"max_players": 2}, headers={HEADER: host})
+    response = client.post(f"/games/{code}/players", json={"name": "Carol"})
+    assert response.status_code == 409
+    assert response.json()["error"] == "TooManyPlayers"
+
+
+def test_score_cap_ends_game_on_confirmation(client):
+    code, alice = new_game(client, "Alice")
+    bob = join(client, code, "Bob")
+    client.patch(
+        f"/games/{code}/config", json={"max_players": 12, "max_score": 1}, headers={HEADER: alice}
+    )
+    client.post(f"/games/{code}/start", json={"duration_min": 15}, headers={HEADER: alice})
+    # Two players => Alice targets Bob. One confirmed kill reaches the cap of 1.
+    client.post(f"/games/{code}/claims", headers={HEADER: alice})
+    response = client.post(
+        f"/games/{code}/claims/{alice}/confirm", json={"confirmed": True}, headers={HEADER: bob}
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ended"
+
+
 def test_swap_mission_decrements_score(client):
     code, alice = new_game(client, "Alice")
     join(client, code, "Bob")

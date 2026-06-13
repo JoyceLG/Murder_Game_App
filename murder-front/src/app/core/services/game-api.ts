@@ -27,6 +27,19 @@ export class GameApi {
     );
   }
 
+  updateConfig(
+    code: string,
+    playerId: string,
+    maxPlayers: number,
+    maxScore: number | null,
+  ): Observable<GameStateDto> {
+    return this.http.patch<GameStateDto>(
+      `${this.base}/games/${code}/config`,
+      { max_players: maxPlayers, max_score: maxScore },
+      { headers: this.idHeader(playerId) },
+    );
+  }
+
   claim(code: string, playerId: string): Observable<ClaimDto> {
     return this.http.post<ClaimDto>(
       `${this.base}/games/${code}/claims`,

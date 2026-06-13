@@ -42,6 +42,9 @@ class ConfirmClaim:
             raise NotTheClaimTarget()
 
         resolve_claim(game, attacker_id, confirmed, self.picker)
+        # A confirmed claim may have pushed the attacker to the score cap — end the game now so
+        # the published state already reflects ENDED (lazy end, evaluated after scoring).
+        settle_end(game, self.clock)
         await self.repo.save(game)
         await self.notifier.publish(game)
         return game

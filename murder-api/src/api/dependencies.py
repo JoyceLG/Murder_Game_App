@@ -16,6 +16,7 @@ from src.application.join_game import JoinGame
 from src.application.leave_game import LeaveGame
 from src.application.start_game import StartGame
 from src.application.swap_mission import SwapMission
+from src.application.update_config import UpdateGameConfig
 from src.domain.randomness import Picker
 from src.ports.clock import Clock
 from src.ports.identifiers import CodeGenerator, IdGenerator
@@ -82,6 +83,13 @@ def start_game_uc(
     notifier: RealtimeNotifier = Depends(get_notifier),
 ) -> StartGame:
     return StartGame(repo=repo, clock=clock, picker=picker, notifier=notifier)
+
+
+def update_config_uc(
+    repo: GameRepository = Depends(get_repo),
+    notifier: RealtimeNotifier = Depends(get_notifier),
+) -> UpdateGameConfig:
+    return UpdateGameConfig(repo=repo, notifier=notifier)
 
 
 def claim_uc(

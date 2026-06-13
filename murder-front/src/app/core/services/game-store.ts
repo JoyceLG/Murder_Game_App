@@ -101,6 +101,12 @@ export class GameStore {
     return firstValueFrom(this.api.start(this.session.code(), durationMin, this.session.playerId()));
   }
 
+  updateConfig(maxPlayers: number, maxScore: number | null): Promise<GameStateDto> {
+    return firstValueFrom(
+      this.api.updateConfig(this.session.code(), this.session.playerId(), maxPlayers, maxScore),
+    );
+  }
+
   claimKill(): Promise<unknown> {
     return firstValueFrom(this.api.claim(this.session.code(), this.session.playerId()));
   }

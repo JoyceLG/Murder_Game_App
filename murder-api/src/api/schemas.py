@@ -19,6 +19,11 @@ class StartGameIn(BaseModel):
     duration_min: int = Field(ge=1, le=240)
 
 
+class UpdateGameConfigIn(BaseModel):
+    max_players: int = Field(ge=2, le=12)
+    max_score: int | None = Field(default=None, ge=1)
+
+
 class ConfirmClaimIn(BaseModel):
     confirmed: bool
 
@@ -50,6 +55,8 @@ class GameOut(BaseModel):
     start_at: int
     end_at: int
     remaining_sec: int
+    max_players: int
+    max_score: int | None
     players: list[PlayerOut]
     claims: list[ClaimOut]
     ranking: list[PlayerOut]
