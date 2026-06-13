@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 import { GameStore } from '../../core/services/game-store';
 import { Session } from '../../core/services/session';
@@ -7,20 +8,22 @@ import { Roster } from '../../shared/roster/roster';
 
 @Component({
   selector: 'app-end',
-  imports: [IdLine, Roster],
+  imports: [TranslocoPipe, IdLine, Roster],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (state(); as s) {
       <app-id-line [name]="me()?.name ?? ''" [code]="s.code" />
       <div class="card center">
-        <span class="eyebrow">Opération terminée</span>
-        <h1 style="margin-top: 8px">{{ headline() }}</h1>
+        <span class="eyebrow">{{ 'end.over' | transloco }}</span>
+        <h1 style="margin-top: 8px">{{ headlineKey() | transloco: headlineParams() }}</h1>
         @if (winner(); as w) {
-          <p class="lead" style="margin-top: 8px">Score final : {{ w.score }} élimination(s).</p>
+          <p class="lead" style="margin-top: 8px">
+            {{ 'end.finalScore' | transloco: { count: w.score } }}
+          </p>
         }
       </div>
       <div class="card">
-        <h2>Classement final</h2>
+        <h2>{{ 'end.finalRanking' | transloco }}</h2>
         <app-roster
           [players]="ranking()"
           [withScore]="true"
@@ -28,7 +31,7 @@ import { Roster } from '../../shared/roster/roster';
           [hostId]="s.host_id"
         />
       </div>
-      <button class="btn ghost" (click)="leave()">Retour à l'accueil</button>
+      <button class="btn ghost" (click)="leave()">{{ 'end.backHome' | transloco }}</button>
     }
   `,
 })
@@ -41,10 +44,14 @@ export class End {
   readonly ranking = this.store.ranking;
   readonly playerId = this.session.playerId;
   readonly winner = computed(() => this.ranking()[0] ?? null);
-  readonly headline = computed(() => {
+  readonly headlineKey = computed(() => {
     const w = this.winner();
-    if (w && w.id === this.session.playerId()) return "Tu remportes l'opération.";
-    return w ? `${w.name} l'emporte.` : 'Fin de partie';
+    if (!w) return 'end.gameOver';
+    return w.id === this.session.playerId() ? 'end.youWin' : 'end.someoneWins';
+  });
+  readonly headlineParams = computed(() => {
+    const w = this.winner();
+    return w ? { name: w.name } : {};
   });
 
   leave(): void {

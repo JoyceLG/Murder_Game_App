@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 import { PlayerDto } from '../../core/models/game.dto';
 
 @Component({
   selector: 'app-roster',
+  imports: [TranslocoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <ul class="roster">
@@ -15,10 +17,10 @@ import { PlayerDto } from '../../core/models/game.dto';
           <span class="pname">
             {{ player.name }}
             @if (player.id === meId()) {
-              <span class="you-tag">TOI</span>
+              <span class="you-tag">{{ 'roster.you' | transloco }}</span>
             }
             @if (player.id === hostId()) {
-              <span class="host-tag">HÔTE</span>
+              <span class="host-tag">{{ 'roster.host' | transloco }}</span>
             }
           </span>
           @if (withScore()) {

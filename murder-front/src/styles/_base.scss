@@ -43,10 +43,36 @@ body {
   box-shadow: 0 0 14px var(--signal);
 }
 .mast .meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--faint);
   letter-spacing: 0.12em;
+}
+.lang {
+  display: inline-flex;
+  gap: 2px;
+}
+.lang-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--faint);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+.lang-btn.on {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+.lang-btn:hover {
+  color: var(--ink);
 }
 
 /* ---- client container ---- */

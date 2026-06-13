@@ -1,6 +1,20 @@
 <header class="mast">
   <div class="brand"><span class="dot"></span><b>MURDER</b></div>
-  <div class="meta">DOSSIER // {{ session.code() || '—' }}</div>
+  <div class="meta">
+    <span class="lang">
+      @for (l of lang.supported; track l) {
+        <button
+          type="button"
+          class="lang-btn"
+          [class.on]="lang.current() === l"
+          (click)="setLang(l)"
+        >
+          {{ l }}
+        </button>
+      }
+    </span>
+    <span class="tagline">{{ 'app.tagline' | transloco }} {{ session.code() || '—' }}</span>
+  </div>
 </header>
 
 <main class="client">

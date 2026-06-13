@@ -1,12 +1,13 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
+import { translocoTesting } from '../../../testing/transloco-testing';
 import { Hud } from './hud';
 
 describe('Hud', () => {
   let fixture: ComponentFixture<Hud>;
 
   beforeEach(() => {
-    TestBed.configureTestingModule({ imports: [Hud] });
+    TestBed.configureTestingModule({ imports: [Hud, translocoTesting()] });
     fixture = TestBed.createComponent(Hud);
   });
 

@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 import { GameStore } from '../../core/services/game-store';
 import { Session } from '../../core/services/session';
@@ -9,7 +10,7 @@ import { Roster } from '../../shared/roster/roster';
 
 @Component({
   selector: 'app-game',
-  imports: [IdLine, Hud, Dossier, Roster],
+  imports: [TranslocoPipe, IdLine, Hud, Dossier, Roster],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (state(); as s) {
@@ -25,14 +26,18 @@ import { Roster } from '../../shared/roster/roster';
 
         @if (incoming(); as inc) {
           <div class="card confirm">
-            <span class="stamp">Tentative d'élimination</span>
+            <span class="stamp">{{ 'game.attempt' | transloco }}</span>
             <p class="ctext">
-              <b>{{ inc.atk_name }}</b> prétend t'avoir éliminé.<br />
+              <b>{{ inc.atk_name }}</b> {{ 'game.claimedBy' | transloco }}<br />
               <span class="muted">« {{ inc.mission }} »</span>
             </p>
             <div class="btn-row">
-              <button class="btn ghost" (click)="confirm(false)">Refuser</button>
-              <button class="btn ok" (click)="confirm(true)">Confirmer</button>
+              <button class="btn ghost" (click)="confirm(false)">
+                {{ 'game.deny' | transloco }}
+              </button>
+              <button class="btn ok" (click)="confirm(true)">
+                {{ 'game.confirm' | transloco }}
+              </button>
             </div>
           </div>
         }
@@ -40,20 +45,26 @@ import { Roster } from '../../shared/roster/roster';
         @if (isPending()) {
           <div class="card">
             <div class="pending">
-              <span class="pulse"></span> En attente de {{ target()?.name ?? 'ta cible' }}…
+              <span class="pulse"></span>
+              {{
+                'game.waitingFor'
+                  | transloco: { name: target()?.name ?? ('game.yourTarget' | transloco) }
+              }}
             </div>
           </div>
         } @else {
           <div class="card">
-            <button class="btn danger" (click)="kill()">J'ai éliminé ma cible</button>
+            <button class="btn danger" (click)="kill()">{{ 'game.kill' | transloco }}</button>
             <button class="btn ghost" (click)="swap()">
-              Changer de mission&nbsp;&nbsp;<span class="muted">−1 pt</span>
+              {{ 'game.swap' | transloco }}&nbsp;&nbsp;<span class="muted">{{
+                'game.swapCost' | transloco
+              }}</span>
             </button>
           </div>
         }
 
         <div class="card">
-          <h2>Classement</h2>
+          <h2>{{ 'game.ranking' | transloco }}</h2>
           <app-roster
             [players]="ranking()"
             [withScore]="true"
@@ -61,7 +72,7 @@ import { Roster } from '../../shared/roster/roster';
             [hostId]="s.host_id"
           />
         </div>
-        <button class="btn ghost" (click)="leave()">Quitter</button>
+        <button class="btn ghost" (click)="leave()">{{ 'common.leave' | transloco }}</button>
       }
     }
   `,

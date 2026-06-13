@@ -1,15 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 import { GameStore } from '../../core/services/game-store';
 
 @Component({
   selector: 'app-gone',
+  imports: [TranslocoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="card center">
-      <span class="eyebrow">Hors ligne</span>
-      <p class="lead" style="margin-top: 8px">La partie n'existe plus.</p>
-      <button class="btn" (click)="leave()">Accueil</button>
+      <span class="eyebrow">{{ 'gone.offline' | transloco }}</span>
+      <p class="lead" style="margin-top: 8px">{{ 'gone.noGame' | transloco }}</p>
+      <button class="btn" (click)="leave()">{{ 'common.home' | transloco }}</button>
     </div>
   `,
 })

@@ -1,0 +1,60 @@
+{
+  "app": { "tagline": "DOSSIER //" },
+  "common": { "leave": "Quitter", "home": "Accueil" },
+  "home": {
+    "eyebrow": "Assignations classifiées",
+    "title": "Une mission.<br>Une cible.<br>Discrétion absolue.",
+    "lead": "Crée une opération, partage le code, élimine ta cible sans te faire griller.",
+    "agentName": "Ton nom d'agent",
+    "agentPlaceholder": "Ex. Corbeau",
+    "create": "Créer une partie",
+    "or": "ou",
+    "gameCode": "Code de partie",
+    "join": "Rejoindre",
+    "error": {
+      "name": "Indique ton nom",
+      "code": "Code à 4 caractères",
+      "createFailed": "Création impossible",
+      "notFound": "Aucune partie pour ce code"
+    }
+  },
+  "lobby": {
+    "waiting": "Salle d'attente",
+    "recruited": "Agents recrutés — {{count}}",
+    "settings": "Paramètres",
+    "duration": "Durée (minutes)",
+    "start": "Lancer l'opération",
+    "minPlayers": "Au moins 2 agents requis",
+    "standby": "En attente",
+    "waitingHost": "L'hôte n'a pas encore lancé…"
+  },
+  "game": {
+    "attempt": "Tentative d'élimination",
+    "claimedBy": "prétend t'avoir éliminé.",
+    "deny": "Refuser",
+    "confirm": "Confirmer",
+    "waitingFor": "En attente de {{name}}…",
+    "yourTarget": "ta cible",
+    "kill": "J'ai éliminé ma cible",
+    "swap": "Changer de mission",
+    "swapCost": "−1 pt",
+    "ranking": "Classement"
+  },
+  "dossier": { "active": "Assignation active", "target": "Cible :" },
+  "hud": { "time": "Temps", "score": "Score", "rank": "Rang" },
+  "seal": {
+    "accessCode": "Code d'accès",
+    "share": "Partage ce code pour recruter des agents"
+  },
+  "roster": { "you": "TOI", "host": "HÔTE" },
+  "end": {
+    "over": "Opération terminée",
+    "finalScore": "Score final : {{count}} élimination(s).",
+    "finalRanking": "Classement final",
+    "youWin": "Tu remportes l'opération.",
+    "someoneWins": "{{name}} l'emporte.",
+    "gameOver": "Fin de partie",
+    "backHome": "Retour à l'accueil"
+  },
+  "gone": { "offline": "Hors ligne", "noGame": "La partie n'existe plus." }
+}

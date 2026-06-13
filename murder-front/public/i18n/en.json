@@ -1,0 +1,60 @@
+{
+  "app": { "tagline": "FILE //" },
+  "common": { "leave": "Leave", "home": "Home" },
+  "home": {
+    "eyebrow": "Classified assignments",
+    "title": "One mission.<br>One target.<br>Total discretion.",
+    "lead": "Create an operation, share the code, eliminate your target without getting caught.",
+    "agentName": "Your agent name",
+    "agentPlaceholder": "e.g. Raven",
+    "create": "Create a game",
+    "or": "or",
+    "gameCode": "Game code",
+    "join": "Join",
+    "error": {
+      "name": "Enter your name",
+      "code": "Code must be 4 characters",
+      "createFailed": "Could not create the game",
+      "notFound": "No game for this code"
+    }
+  },
+  "lobby": {
+    "waiting": "Waiting room",
+    "recruited": "Recruited agents — {{count}}",
+    "settings": "Settings",
+    "duration": "Duration (minutes)",
+    "start": "Launch the operation",
+    "minPlayers": "At least 2 agents required",
+    "standby": "Standby",
+    "waitingHost": "The host hasn't started yet…"
+  },
+  "game": {
+    "attempt": "Elimination attempt",
+    "claimedBy": "claims to have eliminated you.",
+    "deny": "Deny",
+    "confirm": "Confirm",
+    "waitingFor": "Waiting for {{name}}…",
+    "yourTarget": "your target",
+    "kill": "I eliminated my target",
+    "swap": "Change mission",
+    "swapCost": "−1 pt",
+    "ranking": "Standings"
+  },
+  "dossier": { "active": "Active assignment", "target": "Target:" },
+  "hud": { "time": "Time", "score": "Score", "rank": "Rank" },
+  "seal": {
+    "accessCode": "Access code",
+    "share": "Share this code to recruit agents"
+  },
+  "roster": { "you": "YOU", "host": "HOST" },
+  "end": {
+    "over": "Operation over",
+    "finalScore": "Final score: {{count}} elimination(s).",
+    "finalRanking": "Final standings",
+    "youWin": "You win the operation.",
+    "someoneWins": "{{name}} wins.",
+    "gameOver": "Game over",
+    "backHome": "Back to home"
+  },
+  "gone": { "offline": "Offline", "noGame": "The game no longer exists." }
+}

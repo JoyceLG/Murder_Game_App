@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
+import { translocoTesting } from '../../../testing/transloco-testing';
 import { GameStore } from '../../core/services/game-store';
 import { Toast } from '../../core/services/toast';
 import { Home } from './home';
@@ -12,7 +13,7 @@ describe('Home', () => {
     store = jasmine.createSpyObj<GameStore>('GameStore', ['create', 'join']);
     toast = jasmine.createSpyObj<Toast>('Toast', ['show']);
     TestBed.configureTestingModule({
-      imports: [Home],
+      imports: [Home, translocoTesting()],
       providers: [
         { provide: GameStore, useValue: store },
         { provide: Toast, useValue: toast },
@@ -24,7 +25,7 @@ describe('Home', () => {
     const home = TestBed.createComponent(Home).componentInstance;
     home.name = '   ';
     await home.create();
-    expect(toast.show).toHaveBeenCalledWith('Indique ton nom', 'bad');
+    expect(toast.show).toHaveBeenCalledWith('home.error.name', 'bad');
     expect(store.create).not.toHaveBeenCalled();
   });
 
@@ -41,7 +42,7 @@ describe('Home', () => {
     home.name = 'Corbeau';
     home.code = 'AB';
     await home.join();
-    expect(toast.show).toHaveBeenCalledWith('Code à 4 caractères', 'bad');
+    expect(toast.show).toHaveBeenCalledWith('home.error.code', 'bad');
     expect(store.join).not.toHaveBeenCalled();
   });
 });

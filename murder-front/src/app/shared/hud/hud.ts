@@ -1,20 +1,22 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { TranslocoPipe } from '@jsverse/transloco';
 
 @Component({
   selector: 'app-hud',
+  imports: [TranslocoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hud">
       <div class="stat">
-        <div class="lbl">Temps</div>
+        <div class="lbl">{{ 'hud.time' | transloco }}</div>
         <div class="val" [class.warn]="warn()">{{ clock() }}</div>
       </div>
       <div class="stat">
-        <div class="lbl">Score</div>
+        <div class="lbl">{{ 'hud.score' | transloco }}</div>
         <div class="val">{{ score() }}</div>
       </div>
       <div class="stat">
-        <div class="lbl">Rang</div>
+        <div class="lbl">{{ 'hud.rank' | transloco }}</div>
         <div class="val">#{{ rank() }}</div>
       </div>
     </div>
