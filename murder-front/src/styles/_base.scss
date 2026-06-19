@@ -75,6 +75,30 @@ body {
   color: var(--ink);
 }
 
+/* ---- settings: custom mission list ---- */
+.mission-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mission-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.mission-edit {
+  flex: 1;
+  min-width: 0;
+}
+.btn.small {
+  width: auto;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 /* ---- client container ---- */
 .client {
   max-width: 480px;

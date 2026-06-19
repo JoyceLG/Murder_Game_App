@@ -6,6 +6,10 @@ export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'home' },
   { path: 'home', loadComponent: () => import('./features/home/home').then((m) => m.Home) },
   {
+    path: 'settings',
+    loadComponent: () => import('./features/settings/settings').then((m) => m.Settings),
+  },
+  {
     path: 'g/:code',
     canActivate: [inGameGuard],
     loadComponent: () => import('./features/lobby/lobby').then((m) => m.Lobby),

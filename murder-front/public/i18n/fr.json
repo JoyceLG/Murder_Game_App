@@ -11,6 +11,7 @@
     "or": "ou",
     "gameCode": "Code de partie",
     "join": "Rejoindre",
+    "settings": "Configuration",
     "error": {
       "name": "Indique ton nom",
       "code": "Code à 4 caractères",
@@ -63,5 +64,17 @@
     "gameOver": "Fin de partie",
     "backHome": "Retour à l'accueil"
   },
-  "gone": { "offline": "Hors ligne", "noGame": "La partie n'existe plus." }
+  "gone": { "offline": "Hors ligne", "noGame": "La partie n'existe plus." },
+  "settings": {
+    "language": "Langue",
+    "missionsTitle": "Mes missions personnalisées",
+    "missionsHint": "Enregistrées sur cet appareil et réutilisables dans tes parties.",
+    "newMission": "Nouvelle mission",
+    "newPlaceholder": "Ex. Fais dire « banane » à ta cible.",
+    "add": "Ajouter",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "empty": "Aucune mission pour l'instant.",
+    "back": "Retour"
+  }
 }

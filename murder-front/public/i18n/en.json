@@ -11,6 +11,7 @@
     "or": "or",
     "gameCode": "Game code",
     "join": "Join",
+    "settings": "Settings",
     "error": {
       "name": "Enter your name",
       "code": "Code must be 4 characters",
@@ -63,5 +64,17 @@
     "gameOver": "Game over",
     "backHome": "Back to home"
   },
-  "gone": { "offline": "Offline", "noGame": "The game no longer exists." }
+  "gone": { "offline": "Offline", "noGame": "The game no longer exists." },
+  "settings": {
+    "language": "Language",
+    "missionsTitle": "My custom missions",
+    "missionsHint": "Saved on this device and reused across your games.",
+    "newMission": "New mission",
+    "newPlaceholder": "e.g. Make your target say “banana”.",
+    "add": "Add",
+    "save": "Save",
+    "delete": "Delete",
+    "empty": "No missions yet.",
+    "back": "Back"
+  }
 }

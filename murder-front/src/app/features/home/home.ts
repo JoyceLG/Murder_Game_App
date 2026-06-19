@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 
 import { GameStore } from '../../core/services/game-store';
@@ -7,7 +8,7 @@ import { Toast } from '../../core/services/toast';
 
 @Component({
   selector: 'app-home',
-  imports: [FormsModule, TranslocoPipe],
+  imports: [FormsModule, RouterLink, TranslocoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="card">
@@ -31,6 +32,7 @@ import { Toast } from '../../core/services/toast';
       </label>
       <button class="btn" (click)="join()">{{ 'home.join' | transloco }}</button>
     </div>
+    <button class="btn ghost" routerLink="/settings">{{ 'home.settings' | transloco }}</button>
   `,
 })
 export class Home {

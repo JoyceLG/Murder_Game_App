@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 
 import { translocoTesting } from '../../../testing/transloco-testing';
 import { GameStore } from '../../core/services/game-store';
@@ -15,6 +16,7 @@ describe('Home', () => {
     TestBed.configureTestingModule({
       imports: [Home, translocoTesting()],
       providers: [
+        provideRouter([]),
         { provide: GameStore, useValue: store },
         { provide: Toast, useValue: toast },
       ],
