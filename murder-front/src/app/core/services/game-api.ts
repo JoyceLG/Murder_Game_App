@@ -3,7 +3,13 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { environment } from '../../../environments/environment';
-import { ClaimDto, CreatedGameDto, GameStateDto, JoinedGameDto } from '../models/game.dto';
+import {
+  ClaimDto,
+  CreatedGameDto,
+  GameStateDto,
+  JoinedGameDto,
+  MissionMode,
+} from '../models/game.dto';
 
 /** Typed wrapper over the REST endpoints. Identity travels in the X-Player-Id header. */
 @Injectable({ providedIn: 'root' })
@@ -32,12 +38,27 @@ export class GameApi {
     playerId: string,
     maxPlayers: number,
     maxScore: number | null,
+    missionMode: MissionMode,
   ): Observable<GameStateDto> {
     return this.http.patch<GameStateDto>(
       `${this.base}/games/${code}/config`,
-      { max_players: maxPlayers, max_score: maxScore },
+      { max_players: maxPlayers, max_score: maxScore, mission_mode: missionMode },
       { headers: this.idHeader(playerId) },
     );
+  }
+
+  addMission(code: string, playerId: string, text: string): Observable<GameStateDto> {
+    return this.http.post<GameStateDto>(
+      `${this.base}/games/${code}/missions`,
+      { text },
+      { headers: this.idHeader(playerId) },
+    );
+  }
+
+  removeMission(code: string, playerId: string, missionId: string): Observable<GameStateDto> {
+    return this.http.delete<GameStateDto>(`${this.base}/games/${code}/missions/${missionId}`, {
+      headers: this.idHeader(playerId),
+    });
   }
 
   claim(code: string, playerId: string): Observable<ClaimDto> {

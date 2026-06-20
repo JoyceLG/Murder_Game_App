@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import Depends, Header, Request
 
+from src.application.add_mission_to_pool import AddMissionToPool
 from src.application.claim_elimination import ClaimElimination
 from src.application.confirm_claim import ConfirmClaim
 from src.application.create_game import CreateGame
@@ -14,6 +15,7 @@ from src.application.end_game import EndGame
 from src.application.get_game import GetGame
 from src.application.join_game import JoinGame
 from src.application.leave_game import LeaveGame
+from src.application.remove_mission_from_pool import RemoveMissionFromPool
 from src.application.start_game import StartGame
 from src.application.swap_mission import SwapMission
 from src.application.update_config import UpdateGameConfig
@@ -90,6 +92,21 @@ def update_config_uc(
     notifier: RealtimeNotifier = Depends(get_notifier),
 ) -> UpdateGameConfig:
     return UpdateGameConfig(repo=repo, notifier=notifier)
+
+
+def add_mission_uc(
+    repo: GameRepository = Depends(get_repo),
+    ids: IdGenerator = Depends(get_ids),
+    notifier: RealtimeNotifier = Depends(get_notifier),
+) -> AddMissionToPool:
+    return AddMissionToPool(repo=repo, ids=ids, notifier=notifier)
+
+
+def remove_mission_uc(
+    repo: GameRepository = Depends(get_repo),
+    notifier: RealtimeNotifier = Depends(get_notifier),
+) -> RemoveMissionFromPool:
+    return RemoveMissionFromPool(repo=repo, notifier=notifier)
 
 
 def claim_uc(

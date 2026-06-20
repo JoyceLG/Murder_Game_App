@@ -8,13 +8,31 @@ from __future__ import annotations
 
 from src.domain.errors import PlayerNotFound
 from src.domain.missions import MISSIONS
-from src.domain.models import Game
+from src.domain.models import Game, MissionMode
 from src.domain.randomness import Picker, pick_mission_excluding
 
 
 def clamp_duration_min(minutes: int) -> int:
     """Clamp a requested duration to [1, 240] minutes (JS: max(1, min(240, durationMin | 0)))."""
     return max(1, min(240, int(minutes)))
+
+
+def effective_missions(game: Game) -> tuple[str, ...]:
+    """The mission texts a game actually draws from, honouring its mission_mode.
+
+    REPLACE (with a non-empty pool) -> the custom pool only.
+    AUGMENT (default)               -> the default catalogue plus the custom pool.
+    Duplicates are removed, order preserved (catalogue first).
+    """
+    pool = [m.text for m in game.mission_pool]
+    base = pool if (game.mission_mode is MissionMode.REPLACE and pool) else [*MISSIONS, *pool]
+    seen: set[str] = set()
+    out: list[str] = []
+    for mission in base:
+        if mission not in seen:
+            seen.add(mission)
+            out.append(mission)
+    return tuple(out)
 
 
 def assign_targets(game: Game, picker: Picker) -> None:
@@ -25,10 +43,11 @@ def assign_targets(game: Game, picker: Picker) -> None:
     the StartGame use case enforces that guard.
     """
     ids = list(game.players)
+    missions = effective_missions(game)
     for player in game.players.values():
         candidates = [i for i in ids if i != player.id]
         player.target_id = picker.choice(candidates)
-        player.mission = picker.choice(MISSIONS)
+        player.mission = picker.choice(missions)
 
 
 def resolve_claim(game: Game, attacker_id: str, confirmed: bool, picker: Picker) -> None:
@@ -46,15 +65,16 @@ def resolve_claim(game: Game, attacker_id: str, confirmed: bool, picker: Picker)
     if attacker is None:
         raise PlayerNotFound(attacker_id)
 
+    missions = effective_missions(game)
     if confirmed:
         attacker.score += 1
         others = [i for i in game.players if i != attacker_id]
         pool = [i for i in others if i != attacker.target_id] or others
         if pool:
             attacker.target_id = picker.choice(pool)
-        attacker.mission = pick_mission_excluding(picker, attacker.mission)
+        attacker.mission = pick_mission_excluding(picker, attacker.mission, missions)
     else:
-        attacker.mission = pick_mission_excluding(picker, attacker.mission)
+        attacker.mission = pick_mission_excluding(picker, attacker.mission, missions)
 
     game.claims.pop(attacker_id, None)
 
@@ -77,5 +97,5 @@ def swap_mission(game: Game, player_id: str, picker: Picker) -> None:
     player = game.players.get(player_id)
     if player is None:
         raise PlayerNotFound(player_id)
-    player.mission = pick_mission_excluding(picker, player.mission)
+    player.mission = pick_mission_excluding(picker, player.mission, effective_missions(game))
     player.score -= 1

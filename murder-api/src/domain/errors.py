@@ -29,6 +29,18 @@ class InvalidGameConfig(DomainError):
     """The requested game configuration is not acceptable (e.g. cap below current players)."""
 
 
+class InvalidMission(DomainError):
+    """A custom mission is empty, too long, or the pool is full."""
+
+
+class MissionNotFound(DomainError):
+    """No pooled mission with the given id."""
+
+
+class NotAllowedToRemoveMission(DomainError):
+    """Only the mission's author or the host may remove a pooled mission."""
+
+
 class PlayerNotFound(DomainError):
     """No such player in this game."""
 

@@ -145,6 +145,47 @@ def test_score_cap_ends_game_on_confirmation(client):
     assert response.json()["status"] == "ended"
 
 
+def test_add_and_remove_pooled_mission(client):
+    code, alice = new_game(client, "Alice")
+    bob = join(client, code, "Bob")
+    added = client.post(
+        f"/games/{code}/missions", json={"text": "Custom mission"}, headers={HEADER: bob}
+    )
+    assert added.status_code == 200
+    pool = added.json()["mission_pool"]
+    assert len(pool) == 1
+    assert pool[0]["text"] == "Custom mission"
+    assert pool[0]["by"] == bob
+    mid = pool[0]["id"]
+
+    # The host may remove a mission added by another player.
+    removed = client.request("DELETE", f"/games/{code}/missions/{mid}", headers={HEADER: alice})
+    assert removed.status_code == 200
+    assert removed.json()["mission_pool"] == []
+
+
+def test_add_mission_rejects_blank(client):
+    code, alice = new_game(client, "Alice")
+    assert (
+        client.post(
+            f"/games/{code}/missions", json={"text": ""}, headers={HEADER: alice}
+        ).status_code
+        == 422
+    )
+
+
+def test_config_mission_mode_round_trips(client):
+    code, alice = new_game(client, "Alice")
+    join(client, code, "Bob")
+    response = client.patch(
+        f"/games/{code}/config",
+        json={"max_players": 12, "mission_mode": "replace"},
+        headers={HEADER: alice},
+    )
+    assert response.status_code == 200
+    assert response.json()["mission_mode"] == "replace"
+
+
 def test_swap_mission_decrements_score(client):
     code, alice = new_game(client, "Alice")
     join(client, code, "Bob")

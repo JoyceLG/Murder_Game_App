@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 
 from src.api import schemas
 from src.api.dependencies import (
+    add_mission_uc,
     claim_uc,
     confirm_uc,
     create_game_uc,
@@ -15,11 +16,13 @@ from src.api.dependencies import (
     join_game_uc,
     leave_uc,
     player_id,
+    remove_mission_uc,
     start_game_uc,
     swap_uc,
     update_config_uc,
 )
 from src.api.mappers import claim_out, to_game_out
+from src.application.add_mission_to_pool import AddMissionToPool
 from src.application.claim_elimination import ClaimElimination
 from src.application.confirm_claim import ConfirmClaim
 from src.application.create_game import CreateGame
@@ -27,9 +30,11 @@ from src.application.end_game import EndGame
 from src.application.get_game import GetGame
 from src.application.join_game import JoinGame
 from src.application.leave_game import LeaveGame
+from src.application.remove_mission_from_pool import RemoveMissionFromPool
 from src.application.start_game import StartGame
 from src.application.swap_mission import SwapMission
 from src.application.update_config import UpdateGameConfig
+from src.domain.models import MissionMode
 from src.ports.clock import Clock
 
 router = APIRouter()
@@ -81,7 +86,33 @@ async def update_config(
     uc: UpdateGameConfig = Depends(update_config_uc),
     clock: Clock = Depends(get_clock),
 ) -> schemas.GameOut:
-    game = await uc.execute(code, pid, body.max_players, body.max_score)
+    game = await uc.execute(
+        code, pid, body.max_players, body.max_score, MissionMode(body.mission_mode)
+    )
+    return to_game_out(game, clock.now_ms())
+
+
+@router.post("/games/{code}/missions", response_model=schemas.GameOut)
+async def add_mission(
+    code: str,
+    body: schemas.AddMissionToPoolIn,
+    pid: str = Depends(player_id),
+    uc: AddMissionToPool = Depends(add_mission_uc),
+    clock: Clock = Depends(get_clock),
+) -> schemas.GameOut:
+    game = await uc.execute(code, pid, body.text)
+    return to_game_out(game, clock.now_ms())
+
+
+@router.delete("/games/{code}/missions/{mission_id}", response_model=schemas.GameOut)
+async def remove_mission(
+    code: str,
+    mission_id: str,
+    pid: str = Depends(player_id),
+    uc: RemoveMissionFromPool = Depends(remove_mission_uc),
+    clock: Clock = Depends(get_clock),
+) -> schemas.GameOut:
+    game = await uc.execute(code, pid, mission_id)
     return to_game_out(game, clock.now_ms())
 
 

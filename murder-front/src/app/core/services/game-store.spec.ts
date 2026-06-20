@@ -22,8 +22,10 @@ function runningState(partial: Partial<GameStateDto> = {}): GameStateDto {
     remaining_sec: 90,
     max_players: 12,
     max_score: null,
+    mission_mode: 'augment',
     players,
     claims: [],
+    mission_pool: [],
     ranking: [players[0], players[1]],
     ...partial,
   };

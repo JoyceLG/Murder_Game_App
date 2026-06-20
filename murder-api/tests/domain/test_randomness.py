@@ -1,6 +1,5 @@
 import random
 
-import src.domain.randomness as rnd
 from src.domain.missions import MISSIONS
 from src.domain.randomness import RandomPicker, pick_mission_excluding
 from tests.doubles import FirstPicker
@@ -20,13 +19,12 @@ def test_random_picker_is_seeded_deterministic():
 def test_pick_mission_excluding_never_returns_excluded():
     current = MISSIONS[0]
     for _ in range(50):
-        assert pick_mission_excluding(RandomPicker(), current) != current
+        assert pick_mission_excluding(RandomPicker(), current, MISSIONS) != current
 
 
 def test_pick_mission_excluding_returns_any_mission_when_exclude_absent():
-    assert pick_mission_excluding(FirstPicker(), "not-a-real-mission") == MISSIONS[0]
+    assert pick_mission_excluding(FirstPicker(), "not-a-real-mission", MISSIONS) == MISSIONS[0]
 
 
-def test_pick_mission_excluding_falls_back_when_single_mission(monkeypatch):
-    monkeypatch.setattr(rnd, "MISSIONS", ("solo",))
-    assert pick_mission_excluding(FirstPicker(), "solo") == "solo"
+def test_pick_mission_excluding_falls_back_when_single_mission():
+    assert pick_mission_excluding(FirstPicker(), "solo", ("solo",)) == "solo"

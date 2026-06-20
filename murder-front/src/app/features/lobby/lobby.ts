@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 
+import { MissionMode } from '../../core/models/game.dto';
 import { GameStore } from '../../core/services/game-store';
+import { MissionLibrary } from '../../core/services/mission-library';
 import { Session } from '../../core/services/session';
 import { Toast } from '../../core/services/toast';
 import { IdLine } from '../../shared/id-line/id-line';
@@ -24,6 +26,7 @@ import { Seal } from '../../shared/seal/seal';
         <h2>{{ 'lobby.recruited' | transloco: { count: s.players.length } }}</h2>
         <app-roster [players]="s.players" [meId]="playerId()" [hostId]="s.host_id" />
       </div>
+
       @if (isHost()) {
         <div class="card">
           <h2>{{ 'lobby.settings' | transloco }}</h2>
@@ -66,6 +69,77 @@ import { Seal } from '../../shared/seal/seal';
           <p class="lead" style="margin: 8px 0 0">{{ 'lobby.waitingHost' | transloco }}</p>
         </div>
       }
+
+      <!-- Custom mission pool — any player can contribute -->
+      <div class="card">
+        <h2>{{ 'lobby.missionsTitle' | transloco }}</h2>
+
+        @if (isHost()) {
+          <div class="lang" style="margin-bottom: 10px">
+            <button
+              type="button"
+              class="lang-btn"
+              [class.on]="missionMode === 'augment'"
+              (click)="setMode('augment')"
+            >
+              {{ 'lobby.modeAugment' | transloco }}
+            </button>
+            <button
+              type="button"
+              class="lang-btn"
+              [class.on]="missionMode === 'replace'"
+              (click)="setMode('replace')"
+            >
+              {{ 'lobby.modeReplace' | transloco }}
+            </button>
+          </div>
+        }
+
+        <div class="mission-row">
+          <input
+            class="mission-edit"
+            maxlength="200"
+            [placeholder]="'lobby.poolPlaceholder' | transloco"
+            [(ngModel)]="draft"
+            (keyup.enter)="addToPool()"
+          />
+          <button class="btn ghost small" (click)="addToPool()">
+            {{ 'lobby.addToPool' | transloco }}
+          </button>
+        </div>
+
+        @if (s.mission_pool.length === 0) {
+          <p class="foot" style="margin-top: 10px">{{ 'lobby.poolEmpty' | transloco }}</p>
+        } @else {
+          <ul class="mission-list">
+            @for (m of s.mission_pool; track m.id) {
+              <li class="mission-row">
+                <span class="mission-edit">{{ m.text }}</span>
+                @if (m.by === playerId() || isHost()) {
+                  <button class="btn ghost small" (click)="removeFromPool(m.id)">
+                    {{ 'lobby.removeMission' | transloco }}
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+
+        @if (lib.missions().length > 0) {
+          <p class="foot" style="margin-top: 12px">{{ 'lobby.fromLibrary' | transloco }}</p>
+          <ul class="mission-list">
+            @for (m of lib.missions(); track m.id) {
+              <li class="mission-row">
+                <span class="mission-edit">{{ m.text }}</span>
+                <button class="btn ghost small" (click)="addToPool(m.text)">
+                  {{ 'lobby.addToPool' | transloco }}
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
       <div class="card">
         <div class="foot">{{ 'lobby.rulesPlayers' | transloco: { count: s.max_players } }}</div>
         <div class="foot">
@@ -85,10 +159,13 @@ export class Lobby {
   private session = inject(Session);
   private toast = inject(Toast);
   private i18n = inject(TranslocoService);
+  protected readonly lib = inject(MissionLibrary);
 
   duration = 15;
   maxPlayers = 12;
   maxScore: number | null = null;
+  missionMode: MissionMode = 'augment';
+  draft = '';
 
   readonly state = this.store.state;
   readonly me = this.store.me;
@@ -101,7 +178,13 @@ export class Lobby {
     if (s) {
       this.maxPlayers = s.max_players;
       this.maxScore = s.max_score;
+      this.missionMode = s.mission_mode;
     }
+  }
+
+  setMode(mode: MissionMode): void {
+    this.missionMode = mode;
+    void this.applyConfig();
   }
 
   async applyConfig(): Promise<void> {
@@ -110,9 +193,28 @@ export class Lobby {
     const score = this.maxScore && this.maxScore >= 1 ? Math.floor(this.maxScore) : null;
     this.maxScore = score;
     try {
-      await this.store.updateConfig(players, score);
+      await this.store.updateConfig(players, score, this.missionMode);
     } catch {
       this.toast.show(this.i18n.translate('lobby.configError'), 'bad');
+    }
+  }
+
+  async addToPool(text = this.draft): Promise<void> {
+    const value = text.trim();
+    if (!value) return;
+    try {
+      await this.store.addMission(value);
+      if (text === this.draft) this.draft = '';
+    } catch {
+      this.toast.show(this.i18n.translate('lobby.missionError'), 'bad');
+    }
+  }
+
+  async removeFromPool(missionId: string): Promise<void> {
+    try {
+      await this.store.removeMission(missionId);
+    } catch {
+      this.toast.show(this.i18n.translate('lobby.missionError'), 'bad');
     }
   }
 

@@ -2,6 +2,13 @@
 
 export type GameStatus = 'lobby' | 'running' | 'ended';
 export type ClaimStatus = 'pending' | 'ok' | 'no';
+export type MissionMode = 'augment' | 'replace';
+
+export interface PooledMissionDto {
+  id: string;
+  text: string;
+  by: string;
+}
 
 export interface PlayerDto {
   id: string;
@@ -30,8 +37,10 @@ export interface GameStateDto {
   remaining_sec: number;
   max_players: number;
   max_score: number | null;
+  mission_mode: MissionMode;
   players: PlayerDto[];
   claims: ClaimDto[];
+  mission_pool: PooledMissionDto[];
   ranking: PlayerDto[];
 }
 

@@ -22,6 +22,22 @@ class ClaimStatus(StrEnum):
     NO = "no"
 
 
+class MissionMode(StrEnum):
+    """How the per-game mission pool combines with the default catalogue."""
+
+    AUGMENT = "augment"  # catalogue + pool
+    REPLACE = "replace"  # pool only (when non-empty)
+
+
+@dataclass
+class PooledMission:
+    """A custom mission added to a game's pool. `by` is the id of the player who added it."""
+
+    id: str
+    text: str
+    by: str
+
+
 @dataclass
 class Player:
     id: str
@@ -57,8 +73,10 @@ class Game:
     end_at: int = 0  # unix ms
     max_players: int = DEFAULT_MAX_PLAYERS
     max_score: int | None = None  # None = no score cap; the game then ends on time only
+    mission_mode: MissionMode = MissionMode.AUGMENT
     players: dict[str, Player] = field(default_factory=dict)
     claims: dict[str, Claim] = field(default_factory=dict)
+    mission_pool: list[PooledMission] = field(default_factory=list)
 
     def is_time_up(self, now_ms: int) -> bool:
         """True once the running clock has reached end_at (JS: now() >= endAt)."""

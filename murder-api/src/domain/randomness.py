@@ -10,8 +10,6 @@ import random
 from collections.abc import Sequence
 from typing import Protocol
 
-from src.domain.missions import MISSIONS
-
 
 class Picker(Protocol):
     def choice[T](self, seq: Sequence[T]) -> T: ...
@@ -27,12 +25,12 @@ class RandomPicker:
         return self._rng.choice(list(seq))
 
 
-def pick_mission_excluding(picker: Picker, exclude: str) -> str:
-    """Pick a mission different from `exclude` when possible.
+def pick_mission_excluding(picker: Picker, exclude: str, missions: Sequence[str]) -> str:
+    """Pick a mission from `missions`, different from `exclude` when possible.
 
     Replaces the JS single-retry quirk (`m = pick(); if m === cur: m = pick()`), which could
-    still land on the same mission. Here we exclude up front and fall back only if the catalogue
+    still land on the same mission. Here we exclude up front and fall back only if the pool
     has a single entry.
     """
-    pool = [m for m in MISSIONS if m != exclude] or list(MISSIONS)
+    pool = [m for m in missions if m != exclude] or list(missions)
     return picker.choice(pool)

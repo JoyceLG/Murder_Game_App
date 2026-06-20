@@ -12,6 +12,9 @@ from src.domain.errors import (
     GameNotFound,
     GameNotRunning,
     InvalidGameConfig,
+    InvalidMission,
+    MissionNotFound,
+    NotAllowedToRemoveMission,
     NoTargetAssigned,
     NotEnoughPlayers,
     NotTheClaimTarget,
@@ -24,14 +27,17 @@ STATUS_MAP: dict[type[DomainError], int] = {
     GameNotFound: 404,
     PlayerNotFound: 404,
     ClaimNotFound: 404,
+    MissionNotFound: 404,
     GameAlreadyStarted: 409,
     GameNotRunning: 409,
     NotEnoughPlayers: 409,
     TooManyPlayers: 409,
     InvalidGameConfig: 409,
+    InvalidMission: 422,
     NoTargetAssigned: 409,
     NotTheHost: 403,
     NotTheClaimTarget: 403,
+    NotAllowedToRemoveMission: 403,
 }
 
 

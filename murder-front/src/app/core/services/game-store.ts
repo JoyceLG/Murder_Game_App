@@ -1,7 +1,7 @@
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
 import { Subscription, firstValueFrom } from 'rxjs';
 
-import { GameStateDto } from '../models/game.dto';
+import { GameStateDto, MissionMode } from '../models/game.dto';
 import { GameApi } from './game-api';
 import { Realtime } from './realtime';
 import { Session } from './session';
@@ -101,9 +101,31 @@ export class GameStore {
     return firstValueFrom(this.api.start(this.session.code(), durationMin, this.session.playerId()));
   }
 
-  updateConfig(maxPlayers: number, maxScore: number | null): Promise<GameStateDto> {
+  updateConfig(
+    maxPlayers: number,
+    maxScore: number | null,
+    missionMode: MissionMode,
+  ): Promise<GameStateDto> {
     return firstValueFrom(
-      this.api.updateConfig(this.session.code(), this.session.playerId(), maxPlayers, maxScore),
+      this.api.updateConfig(
+        this.session.code(),
+        this.session.playerId(),
+        maxPlayers,
+        maxScore,
+        missionMode,
+      ),
+    );
+  }
+
+  addMission(text: string): Promise<unknown> {
+    return firstValueFrom(
+      this.api.addMission(this.session.code(), this.session.playerId(), text),
+    );
+  }
+
+  removeMission(missionId: string): Promise<unknown> {
+    return firstValueFrom(
+      this.api.removeMission(this.session.code(), this.session.playerId(), missionId),
     );
   }
 

@@ -19,7 +19,16 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import StaticPool
 
-from src.domain.models import DEFAULT_MAX_PLAYERS, Claim, ClaimStatus, Game, GameStatus, Player
+from src.domain.models import (
+    DEFAULT_MAX_PLAYERS,
+    Claim,
+    ClaimStatus,
+    Game,
+    GameStatus,
+    MissionMode,
+    Player,
+    PooledMission,
+)
 
 
 class Base(DeclarativeBase):
@@ -37,6 +46,7 @@ class GameRow(Base):
     end_at: Mapped[int] = mapped_column(BigInteger, default=0)
     max_players: Mapped[int] = mapped_column(Integer, default=DEFAULT_MAX_PLAYERS)
     max_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    mission_mode: Mapped[str] = mapped_column(String(16), default=str(MissionMode.AUGMENT))
 
 
 class PlayerRow(Base):
@@ -67,7 +77,24 @@ class ClaimRow(Base):
     ts: Mapped[int] = mapped_column(BigInteger, default=0)
 
 
-def _to_domain(game_row: GameRow, player_rows: list[PlayerRow], claim_rows: list[ClaimRow]) -> Game:
+class MissionPoolRow(Base):
+    __tablename__ = "mission_pool"
+
+    game_code: Mapped[str] = mapped_column(
+        String(8), ForeignKey("games.code", ondelete="CASCADE"), primary_key=True
+    )
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    text: Mapped[str] = mapped_column(String(255))
+    added_by: Mapped[str] = mapped_column(String(64))
+
+
+def _to_domain(
+    game_row: GameRow,
+    player_rows: list[PlayerRow],
+    claim_rows: list[ClaimRow],
+    mission_rows: list[MissionPoolRow],
+) -> Game:
     game = Game(
         code=game_row.code,
         host_id=game_row.host_id,
@@ -77,7 +104,10 @@ def _to_domain(game_row: GameRow, player_rows: list[PlayerRow], claim_rows: list
         end_at=game_row.end_at,
         max_players=game_row.max_players,
         max_score=game_row.max_score,
+        mission_mode=MissionMode(game_row.mission_mode),
     )
+    for row in mission_rows:
+        game.mission_pool.append(PooledMission(id=row.id, text=row.text, by=row.added_by))
     for row in player_rows:
         game.players[row.id] = Player(
             id=row.id,
@@ -132,7 +162,18 @@ class SqlGameRepository:
                 .scalars()
                 .all()
             )
-            return _to_domain(game_row, list(players), list(claims))
+            missions = (
+                (
+                    await session.execute(
+                        select(MissionPoolRow)
+                        .where(MissionPoolRow.game_code == code)
+                        .order_by(MissionPoolRow.position, MissionPoolRow.id)
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            return _to_domain(game_row, list(players), list(claims), list(missions))
 
     async def save(self, game: Game) -> None:
         async with self._session_factory() as session, session.begin():
@@ -147,11 +188,15 @@ class SqlGameRepository:
             game_row.end_at = game.end_at
             game_row.max_players = game.max_players
             game_row.max_score = game.max_score
+            game_row.mission_mode = str(game.mission_mode)
             await session.flush()
 
             # Replace the aggregate's children wholesale.
             await session.execute(delete(PlayerRow).where(PlayerRow.game_code == game.code))
             await session.execute(delete(ClaimRow).where(ClaimRow.game_code == game.code))
+            await session.execute(
+                delete(MissionPoolRow).where(MissionPoolRow.game_code == game.code)
+            )
             await session.flush()
 
             for player in game.players.values():
@@ -178,11 +223,22 @@ class SqlGameRepository:
                         ts=claim.ts,
                     )
                 )
+            for position, mission in enumerate(game.mission_pool):
+                session.add(
+                    MissionPoolRow(
+                        game_code=game.code,
+                        id=mission.id,
+                        position=position,
+                        text=mission.text,
+                        added_by=mission.by,
+                    )
+                )
 
     async def delete(self, code: str) -> None:
         async with self._session_factory() as session, session.begin():
             await session.execute(delete(ClaimRow).where(ClaimRow.game_code == code))
             await session.execute(delete(PlayerRow).where(PlayerRow.game_code == code))
+            await session.execute(delete(MissionPoolRow).where(MissionPoolRow.game_code == code))
             await session.execute(delete(GameRow).where(GameRow.code == code))
 
     async def exists(self, code: str) -> bool:

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from src.application._support import get_game_or_404
 from src.domain.errors import GameAlreadyStarted, InvalidGameConfig, NotTheHost
-from src.domain.models import Game, GameStatus
+from src.domain.models import Game, GameStatus, MissionMode
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
 
@@ -21,7 +21,12 @@ class UpdateGameConfig:
     notifier: RealtimeNotifier
 
     async def execute(
-        self, code: str, host_id: str, max_players: int, max_score: int | None
+        self,
+        code: str,
+        host_id: str,
+        max_players: int,
+        max_score: int | None,
+        mission_mode: MissionMode,
     ) -> Game:
         game = await get_game_or_404(self.repo, code)
         if game.host_id != host_id:
@@ -34,6 +39,7 @@ class UpdateGameConfig:
 
         game.max_players = max_players
         game.max_score = max_score
+        game.mission_mode = mission_mode
         await self.repo.save(game)
         await self.notifier.publish(game)
         return game

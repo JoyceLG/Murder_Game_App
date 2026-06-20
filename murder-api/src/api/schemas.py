@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # --- requests --------------------------------------------------------------------------
@@ -22,6 +24,11 @@ class StartGameIn(BaseModel):
 class UpdateGameConfigIn(BaseModel):
     max_players: int = Field(ge=2, le=12)
     max_score: int | None = Field(default=None, ge=1)
+    mission_mode: Literal["augment", "replace"] = "augment"
+
+
+class AddMissionToPoolIn(BaseModel):
+    text: str = Field(min_length=1, max_length=200)
 
 
 class ConfirmClaimIn(BaseModel):
@@ -47,6 +54,12 @@ class ClaimOut(BaseModel):
     status: str
 
 
+class PooledMissionOut(BaseModel):
+    id: str
+    text: str
+    by: str
+
+
 class GameOut(BaseModel):
     code: str
     host_id: str
@@ -57,8 +70,10 @@ class GameOut(BaseModel):
     remaining_sec: int
     max_players: int
     max_score: int | None
+    mission_mode: str
     players: list[PlayerOut]
     claims: list[ClaimOut]
+    mission_pool: list[PooledMissionOut]
     ranking: list[PlayerOut]
 
 

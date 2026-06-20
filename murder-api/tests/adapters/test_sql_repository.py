@@ -16,7 +16,7 @@ from src.adapters.sql_repository import (
     build_session_factory,
     create_all,
 )
-from src.domain.models import GameStatus
+from src.domain.models import GameStatus, MissionMode, PooledMission
 from src.ports.repository import GameRepository
 from tests.builders import add_claim, make_game
 
@@ -107,6 +107,29 @@ async def test_default_caps_round_trip(repo):
     loaded = await repo.get("WXYZ")
     assert loaded.max_players == 12
     assert loaded.max_score is None
+
+
+async def test_mission_pool_and_mode_round_trip(repo):
+    game = make_game(["a", "b"], code="WXYZ")
+    game.mission_mode = MissionMode.REPLACE
+    game.mission_pool = [
+        PooledMission(id="m1", text="Custom A", by="a"),
+        PooledMission(id="m2", text="Custom B", by="b"),
+    ]
+    await repo.save(game)
+    loaded = await repo.get("WXYZ")
+    assert loaded.mission_mode is MissionMode.REPLACE
+    assert [(m.id, m.text, m.by) for m in loaded.mission_pool] == [
+        ("m1", "Custom A", "a"),
+        ("m2", "Custom B", "b"),
+    ]
+
+
+async def test_default_mission_mode_round_trips(repo):
+    await repo.save(make_game(["a", "b"], code="WXYZ"))
+    loaded = await repo.get("WXYZ")
+    assert loaded.mission_mode is MissionMode.AUGMENT
+    assert loaded.mission_pool == []
 
 
 async def test_status_enum_round_trips(repo):
