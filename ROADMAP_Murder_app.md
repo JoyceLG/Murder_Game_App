@@ -10,6 +10,8 @@
 
 ## Vue d'ensemble des phases
 
+### Bloc 1 — Migration (Phases 0 → 7)
+
 | Phase | Contenu | Durée estimée |
 |------|---------|---------------|
 | 0 | Setup projet & outillage | 0,5 j |
@@ -21,9 +23,32 @@
 | 6 | Front Angular | 3-4 j |
 | 7 | CI/CD & finition | 1 j |
 
-Total réaliste en projet perso : **3 à 4 semaines** à temps partiel. Les phases 1 à 4 couvrent l'essentiel ; Angular (6) est le bonus.
+> **Phases 0→7 : terminées.**
 
-> **Phases 0→7 (migration) : terminées.** La suite — fondations « mobile-ready » (**Phase 8**, à traiter dès maintenant) puis déploiement des apps Android/iOS — est décrite en fin de document : voir [« Feuille de route — Déploiement mobile (Android + iOS) »](#feuille-de-route--déploiement-mobile-android--ios).
+### Bloc 2 — Features pré-déploiement mobile (Phases 8 → 15)
+
+| Phase | Issue | Contenu | Durée estimée |
+|------|-------|---------|---------------|
+| 8 | — | Fondations « mobile-ready » | en cours |
+| 9 | [#10](https://github.com/JoyceLG/Murder_app/issues/10) | i18n — infrastructure multilingue FR/EN | 2-3 j |
+| 10 | [#11](https://github.com/JoyceLG/Murder_app/issues/11) | Config de partie : max points & max joueurs | 1-2 j |
+| 11 | [#12](https://github.com/JoyceLG/Murder_app/issues/12) | Missions : bibliothèque locale + onglet de config | 2-3 j |
+| 12 | [#13](https://github.com/JoyceLG/Murder_app/issues/13) | Missions : pool de partie (tous joueurs) | 2-3 j |
+| 13 | [#14](https://github.com/JoyceLG/Murder_app/issues/14) | i18n — catalogue de missions par défaut | 1 j |
+| 14 | [#15](https://github.com/JoyceLG/Murder_app/issues/15) | Gameplay : accusé de réception attaquant | 1-2 j |
+| 15 | [#16](https://github.com/JoyceLG/Murder_app/issues/16) | UX : animations de jeu | 2-3 j |
+
+**Total Bloc 2** : 12–18 jours à temps partiel.
+
+### Bloc 3 — Déploiement mobile (Phases 16 → 20)
+
+| Phase | Contenu | Quand |
+|------|---------|-------|
+| 16 | Héberger le backend (HTTPS/WSS) | Après Bloc 2 |
+| 17 | Durcissement multi-origine + auth JWT | Après Bloc 2 |
+| 18 | Intégration Capacitor | Après Bloc 2 |
+| 19 | Notifications push | Après Bloc 2 |
+| 20 | Publication stores | Après Bloc 2 |
 
 ---
 
@@ -65,7 +90,7 @@ murder-api/
 └── README.md
 ```
 
-**Le principe clé** : les dépendances pointent toujours **vers l'intérieur**. `domain` ne dépend de rien. `application` dépend de `domain` et des `ports` (interfaces). Les `adapters` et `api` dépendent de l'intérieur, jamais l'inverse. On peut remplacer FastAPI ou la persistance sans toucher au métier — exactement ce que tu fais déjà entre `backend-memory` et `backend-firestore`.
+**Le principe clé** : les dépendances pointent toujours **vers l'intérieur**. `domain` ne dépend de rien. `application` dépend de `domain` et des `ports` (interfaces). Les `adapters` et `api` dépendent de l'intérieur, jamais l'inverse.
 
 ---
 
@@ -85,7 +110,6 @@ Tâches :
 3. `pyproject.toml` avec config `ruff` (lint + format) et `pytest` (`--cov=src`).
 4. Premier test bidon qui passe (`tests/test_smoke.py`) pour valider la tuyauterie.
 
-
 ---
 
 ## Phase 1 — Le domaine en TDD (2-3 j)
@@ -93,7 +117,6 @@ Tâches :
 **But** : porter la logique de `game.js` en Python pur, **en écrivant les tests d'abord**.
 
 ### Modèle (domain/models.py)
-Reprends ton modèle Firestore existant, typé :
 ```python
 from dataclasses import dataclass, field
 from enum import Enum
@@ -128,19 +151,6 @@ Les fonctions pures que tu as déjà en JS, à porter en TDD :
 - **résolution d'une élimination** (`resolve_claim`) : si confirmée → +1 point, nouvelle cible (différente de l'ancienne si possible), nouvelle mission ; si refusée → nouvelle mission seulement.
 - **classement** (`ranking`) : tri par score décroissant.
 
-### Boucle TDD à appliquer pour chaque règle
-1. **Rouge** : écris le test qui décrit le comportement attendu.
-   ```python
-   def test_resolve_claim_ok_increments_score_and_reassigns():
-       game = a_running_game_with(["alice", "bob", "carol"])
-       resolve_claim(game, attacker_id="alice", confirmed=True)
-       assert game.players["alice"].score == 1
-       assert game.players["alice"].target_id != "alice"
-       assert game.players["alice"].mission != ""
-   ```
-2. **Vert** : écris le minimum de code pour faire passer le test.
-3. **Refactor** : nettoie sans casser les tests.
-
 **Objectif de couverture** : >90% sur `domain/` (c'est du code pur, c'est atteignable).
 
 ---
@@ -170,7 +180,6 @@ class InMemoryGameRepository:
     def delete(self, code): self._games.pop(code, None)
 ```
 
-
 ---
 
 ## Phase 3 — Cas d'usage / application (1-2 j)
@@ -190,9 +199,6 @@ class CreateGame:
 ```
 Cas à couvrir : `CreateGame`, `JoinGame`, `StartGame` (déclenche `assign_targets`), `ClaimElimination`, `ConfirmClaim` (déclenche `resolve_claim`), `EndGame`.
 
-Tests d'application : on injecte `InMemoryGameRepository`, on appelle `execute`, on vérifie l'état. Rapides, sans réseau.
-
-
 ---
 
 ## Phase 4 — API REST FastAPI + temps réel (2-3 j)
@@ -209,25 +215,8 @@ Tests d'application : on injecte `InMemoryGameRepository`, on appelle `execute`,
 | POST | `/games/{code}/claims/{id}/confirm` | ConfirmClaim |
 | GET | `/games/{code}` | état courant |
 
-### Schémas (api/schemas.py)
-DTO Pydantic en entrée/sortie — ne jamais exposer directement les entités du domaine. Ça montre que tu sépares le contrat d'API du modèle interne.
-
 ### Temps réel (api/websocket.py)
 Remplace les `watchDoc`/`watchCollection` de Firestore : un endpoint `WebSocket /games/{code}/live` qui push l'état à chaque changement. Implémente le port `RealtimeNotifier`.
-
-### Wiring (api/main.py)
-Injection des dépendances via `Depends` de FastAPI : c'est ici, et seulement ici, qu'on choisit `InMemoryGameRepository` (ou autre demain).
-
-### Tests d'intégration
-```python
-from fastapi.testclient import TestClient
-def test_create_then_join_game():
-    r = client.post("/games", json={"host_name": "Alice"})
-    code = r.json()["code"]
-    r2 = client.post(f"/games/{code}/players", json={"name": "Bob"})
-    assert r2.status_code == 201
-```
-
 
 ---
 
@@ -235,7 +224,6 @@ def test_create_then_join_game():
 
 **But** : packager l'API.
 
-`Dockerfile` (multi-stage, image légère) :
 ```dockerfile
 FROM python:3.12-slim AS base
 WORKDIR /app
@@ -259,84 +247,236 @@ Tâches :
 3. Composants : `HomeComponent` (créer/rejoindre), `LobbyComponent`, `GameComponent` (ma mission, ma cible, bouton "j'ai éliminé"), `EndComponent` (classement).
 4. Reprends ton thème "dossier d'agence" (`style.css`) — l'identité visuelle est déjà là.
 
-> Astuce : commence par traduire ton `ui.js` actuel composant par composant. La logique d'affichage existe déjà, tu la restructures en Angular.
-
-
 ---
 
 ## Phase 7 — CI/CD & finition (1 j)
 
 **But** : automatiser.
 
-1. **GitHub Actions** (`.github/workflows/ci.yml`) : sur chaque push → `ruff check`, `pytest --cov`, build Docker. Tu peux afficher un badge de couverture dans le README.
+1. **GitHub Actions** (`.github/workflows/ci.yml`) : sur chaque push → `ruff check`, `pytest --cov`, build Docker. Badge de couverture dans le README.
 2. **README** clair : schéma de l'archi hexagonale, comment lancer (`docker compose up`), comment tester (`pytest`), choix techniques expliqués.
 3. Optionnel : déployer une démo (Railway, Fly.io, ou Firebase Hosting pour le front).
 
-**Prouve** : CI/CD (GitHub Actions cette fois, en plus de ton Bitbucket pro), souci de la qualité et de la transmission (un README qui explique = posture de référent).
+---
+
+
+# Features pré-déploiement mobile
+
+**Objectif final** : distribuer Murder_app comme **apps natives Android + iOS via Capacitor**, avec **notifications push**. Avant d'entrer dans la mécanique de déploiement (Bloc 3), ce bloc étoffe le jeu et pose les fondations qui évitent toute dette technique mobile.
+
+---
+
+## Phase 8 — Fondations « mobile-ready »
+
+**But** : poser le minimum qui évite d'accumuler de la dette technique pendant qu'on développe les prochaines features. Tout le reste peut attendre, **pas ça**.
+
+1. **Garde-fous architecturaux documentés** dans [CLAUDE.md](CLAUDE.md) — section « Mobile-ready guardrails ». Chaque nouvelle feature les respecte par construction : URLs jamais en dur (toujours via `environment.apiBase`/`wsBase`), identité via header `X-Player-Id`, pas d'API navigateur sans fallback WebView, responsive + safe-areas, backend 12-factor, notifications derrière un port.
+2. **CORS par allowlist via env var.** Remplacer `allow_origins=["*"]` par une liste lue dans `ALLOWED_ORIGINS` ([murder-api/src/api/config.py](murder-api/src/api/config.py)), incluant à terme les origines WebView (`capacitor://localhost`, `https://localhost`).
+3. **Config runtime du front centralisée.** `apiBase`/`wsBase` restent l'unique source des URLs ; interdire tout nouvel usage de `location.host`/`location.origin` hors de `core/services/realtime.ts`.
+
+> Notes : 8.2 et 8.3 sont de petits chantiers à planifier (non bloquants tant que les garde-fous 8.1 sont respectés). L'auth JWT, plus lourde, est repoussée en Phase 17.
+
+---
+
+## Phase 9 — i18n : infrastructure multilingue FR/EN (issue #10) — 2-3 j
+
+**But** : poser l'infrastructure de traduction une fois pour toutes, **avant** d'ajouter tout nouveau texte dans l'app. Toutes les phases suivantes bénéficient automatiquement du support FR/EN.
+
+**Dépendances** : aucune.
+
+### Backend
+- Ajouter un champ `locale: str = "fr"` à `Player` (préférence linguistique stockée, non encore utilisée).
+- Préparer `domain/missions.py` à recevoir des clés de traduction (le catalogue reste en français pour l'instant, la migration vers les clés arrivera en Phase 13).
+
+### Frontend
+- Intégrer **`@ngx-translate/core`** + `@ngx-translate/http-loader`.
+- Créer `murder-front/src/assets/i18n/fr.json` et `en.json` avec **toutes** les chaînes UI existantes extraites des templates et des services.
+- Un `LanguageSwitcherComponent` (header) qui persiste le choix dans `localStorage`.
+- Le `GameStore` expose la locale courante ; les messages d'erreur HTTP sont localisés via un intercepteur.
+
+### Tests
+- Test unitaire Angular : changement de langue → les clés résolues changent.
+- Test de non-régression : aucune chaîne brute en français dans les templates (lint custom ou convention de revue).
+
+### Critères d'acceptation
+- Toute l'UI bascule en EN sans recharger la page.
+- Toute nouvelle chaîne ajoutée après cette phase doit passer par une clé i18n (bloquant en revue de PR).
+
+---
+
+## Phase 10 — Config de partie : max points & max joueurs (issue #11) — 1-2 j
+
+**But** : permettre à l'hôte de configurer les règles de fin de partie avant de lancer le jeu.
+
+**Dépendances** : aucune (peut tourner en parallèle de Phase 9).
+
+### Backend
+- Ajouter `max_score: int = 0` et `max_players: int = 0` à `Game` (`0` = illimité).
+- Nouveau cas d'usage `ConfigureGame` (ou extension de `CreateGame`) : appelable par l'hôte tant que le jeu est en `LOBBY`.
+- Endpoint `PATCH /games/{code}/config` — body `{ max_score, max_players }`, guard hôte uniquement.
+- `settle_end` étendu : une partie se termine aussi quand un joueur atteint `max_score` (si > 0).
+- `JoinGame` renvoie `GameFull` (409) si `max_players > 0` et la limite est atteinte.
+
+### Frontend
+- Dans `LobbyComponent`, panneau de config visible uniquement par l'hôte : champs `max_score` et `max_players` avec label i18n.
+- Appel `PATCH /config` à chaque changement ; les non-hôtes voient les valeurs en lecture seule.
+
+### Tests
+- `test_game_ends_when_max_score_reached` (domain/application).
+- `test_join_game_fails_when_lobby_full` (application).
+- Test d'intégration FastAPI : `PATCH /config` par un non-hôte → 403.
+
+### Critères d'acceptation
+- L'hôte peut définir `max_score = 3` → la partie se termine automatiquement au 3e point.
+- L'hôte peut définir `max_players = 6` → le 7e joueur qui tente de rejoindre reçoit une erreur explicite.
+
+---
+
+## Phase 11 — Missions : bibliothèque locale (issue #12) — 2-3 j
+
+**But** : permettre à chaque joueur de constituer sa bibliothèque personnelle de missions, stockée localement, et de la gérer via un onglet dédié.
+
+**Dépendances** : Phase 9 (i18n infra — les labels de l'onglet sont localisés).
+
+### Frontend (uniquement — pas de modification backend)
+- Nouveau service `MissionLibraryService` : CRUD sur `localStorage` (`murder_missions_lib`), retourne `Mission[]` (`{ id, text, locale }`).
+- Onglet **"Mes missions"** accessible depuis `HomeComponent` ou un menu global.
+- UI : liste des missions enregistrées, formulaire d'ajout (champ texte + bouton), suppression avec confirmation, export/import JSON (optionnel).
+- Les textes de l'onglet passent par les clés i18n de la Phase 9.
+
+### Tests
+- Tests Angular unitaires sur `MissionLibraryService` : add/remove/list, persistance entre instances.
+- Test de composant : l'onglet affiche les missions stockées et permet l'ajout.
+
+### Critères d'acceptation
+- Un joueur peut ajouter "Éliminer en portant un chapeau" → la mission est conservée après rechargement de la page.
+- La bibliothèque est totalement locale : aucun appel API n'est émis.
+
+---
+
+## Phase 12 — Missions : pool de partie (issue #13) — 2-3 j
+
+**But** : permettre à tous les joueurs de contribuer des missions au pool de la partie, avec deux modes de fusion (augmenter le catalogue ou le remplacer).
+
+**Dépendances** : Phase 10 (config de partie — le mode de fusion est un paramètre hôte), Phase 11 (la bibliothèque locale est la source de missions à contribuer).
+
+### Backend
+- Nouveau champ `mission_pool: list[str]` sur `Game` (initialement vide → catalogue par défaut utilisé).
+- Nouveau champ `mission_pool_mode: Literal["append", "replace"] = "append"` sur `Game` (configurable par l'hôte via `PATCH /config`).
+- Nouveau cas d'usage `ContributeMissions` + endpoint `POST /games/{code}/missions` : un joueur en `LOBBY` soumet une liste de missions ; elles s'ajoutent à `mission_pool`.
+- `StartGame` → `assign_targets` utilise `mission_pool` si non vide, sinon catalogue par défaut ; `rules.py` reçoit le pool en paramètre (injection explicite, pas d'effet de bord global).
+
+### Frontend
+- Dans `LobbyComponent` : bouton "Contribuer mes missions" → sélection depuis `MissionLibraryService` + envoi.
+- Indicateur du nombre de missions dans le pool (visible par tous).
+- L'hôte voit un toggle "mode : augmenter / remplacer".
+
+### Tests
+- `test_start_game_uses_custom_pool_when_provided` (domain/rules).
+- `test_contribute_missions_appended_to_pool` (application).
+- Test d'intégration : contribuer après `start` → 409.
+
+### Critères d'acceptation
+- En mode `append` : les missions des joueurs s'ajoutent au catalogue existant.
+- En mode `replace` : seules les missions contribuées sont utilisées pendant la partie.
+- Contribuer des missions une fois la partie lancée est refusé (409).
+
+---
+
+## Phase 13 — i18n : catalogue de missions par défaut (issue #14) — 1 j
+
+**But** : rendre le catalogue de missions par défaut traduisible, en remplaçant les textes bruts par des clés i18n.
+
+**Dépendances** : Phase 9 (infra i18n), Phase 12 (le pool de partie est stable — le catalogue ne doit plus changer après ça).
+
+### Backend
+- `domain/missions.py` : remplacer les chaînes FR brutes par des **clés** (`"mission.shadow"`, `"mission.hat"`, etc.).
+- Le backend renvoie les clés dans `player.mission` ; la traduction est à la charge du front.
+
+### Frontend
+- `fr.json` et `en.json` : ajouter les entrées de traduction pour toutes les clés du catalogue.
+- `GameComponent` : afficher `translate.instant(player.mission)` au lieu de la chaîne brute.
+- Fallback : si une clé n'est pas dans le fichier de traduction (mission personnalisée = texte libre), afficher le texte tel quel.
+
+### Tests
+- Test Angular : une clé connue est correctement traduite en FR et EN.
+- Test Angular : un texte libre (non-clé) est affiché sans transformation.
+
+### Critères d'acceptation
+- Passer l'app en EN → les missions du catalogue sont en anglais.
+- Une mission personnalisée contribuée par un joueur (texte libre) reste intacte quelle que soit la langue.
+
+---
+
+## Phase 14 — Gameplay : accusé de réception attaquant (issue #15) — 1-2 j
+
+**But** : après qu'une élimination est confirmée, l'attaquant doit accuser réception avant de recevoir sa prochaine mission — évite le "spam d'élimination" et améliore le rythme du jeu.
+
+**Dépendances** : aucune (logique backend + nouveau state front).
+
+### Backend
+- Nouveau statut intermédiaire : `Player` reçoit un champ `pending_ack: bool = False` mis à `True` par `resolve_claim` quand la confirmation est positive.
+- Nouveau cas d'usage `AcknowledgeKill` + endpoint `POST /games/{code}/ack` : l'attaquant appelle cet endpoint → `pending_ack` repasse à `False`, la nouvelle mission et la nouvelle cible sont assignées **à ce moment-là** (pas avant).
+- `ClaimElimination` vérifie que `pending_ack == False` (un attaquant ne peut pas réclamer une nouvelle élimination tant qu'il n'a pas acquitté la précédente).
+
+### Frontend
+- `GameComponent` : si `me.pending_ack == True`, afficher un écran interstitiel "Félicitations — tu as éliminé [nom] ! Prêt pour la suite ?" avec un bouton "Continuer".
+- Appel `POST /ack` au clic → le WebSocket push la mise à jour et l'écran de jeu normal reprend.
+
+### Tests
+- `test_second_claim_blocked_while_ack_pending` (application).
+- `test_ack_assigns_new_target_and_mission` (application/domain).
+- Test d'intégration FastAPI : `POST /ack` par un non-attaquant → 403.
+
+### Critères d'acceptation
+- Après un kill confirmé, l'attaquant voit l'écran interstitiel et ne peut pas réclamer une nouvelle élimination.
+- Après "Continuer", l'écran de jeu affiche la nouvelle mission et la nouvelle cible.
+
+---
+
+## Phase 15 — UX : animations de jeu (issue #16) — 2-3 j
+
+**But** : ajouter des animations visuelles pour les moments clés du jeu, renforçant le feedback et l'immersion.
+
+**Dépendances** : Phase 14 (les états du jeu sont tous stables, notamment l'interstitiel d'accusé de réception).
+
+### Animations à implémenter (Angular Animations + CSS)
+| Déclencheur | Animation | Durée |
+|------------|-----------|-------|
+| Élimination reçue (`incoming` claim arrivé) | Pulse rouge + vibration légère sur l'écran | 600 ms |
+| Confirmation de kill réussie | Confetti ou flash vert + slide-in du score | 800 ms |
+| Kill refusé | Shake + flash orange | 400 ms |
+| Nouvelle mission assignée (post-`ack`) | Flip de carte révélant la nouvelle mission | 500 ms |
+| Transition lobby → jeu | Fade-in de l'écran de jeu | 300 ms |
+
+### Contraintes mobiles (garde-fous Phase 8)
+- Utiliser `@angular/animations` (pas de lib externe).
+- Respecter `prefers-reduced-motion` : si activé, remplacer toutes les animations par des transitions instantanées.
+- Les animations ne bloquent **jamais** une interaction ; elles sont purement décoratives.
+
+### Tests
+- Tests d'existence et de non-régression (Karma) : les composants concernés se rendent correctement en présence des triggers d'animation.
+- Pas de test sur le rendu visuel exact — valider manuellement avec les scénarios du wiki.
+
+### Critères d'acceptation
+- Chaque animation se déclenche au bon moment, visible sur Chrome desktop et mobile (tester sur un vrai appareil).
+- Avec `prefers-reduced-motion: reduce`, aucune animation ne s'exécute (transition instantanée à la place).
+- Aucune régression sur les tests existants.
 
 ---
 
 
 # Feuille de route — Déploiement mobile (Android + iOS)
 
-**Objectif final** : distribuer Murder_app comme **apps natives Android + iOS via Capacitor** (le SPA Angular empaqueté dans une WebView native, publiable sur les stores), avec **notifications push** (jeu temps réel : être prévenu d'une élimination réclamée ou d'une confirmation à valider).
+**Objectif final** : distribuer Murder_app comme **apps natives Android + iOS via Capacitor** (le SPA Angular empaqueté dans une WebView native, publiable sur les stores), avec **notifications push**.
 
-**Viabilité : l'architecture est prête, sans refonte.** Le backend FastAPI hexagonal est agnostique au client (une app mobile = un client REST + WebSocket de plus, le CORS est déjà activé) ; le front Angular 20 est exactement ce que Capacitor empaquette en réutilisant 100 % du code UI ; la session en `localStorage` fonctionne telle quelle en WebView. Le travail est donc surtout **opérationnel** (hébergement, durcissement, packaging), pas applicatif.
+**Viabilité : l'architecture est prête, sans refonte.** Le backend FastAPI hexagonal est agnostique au client ; le front Angular est exactement ce que Capacitor empaquette en réutilisant 100 % du code UI ; la session en `localStorage` fonctionne telle quelle en WebView.
 
-> **Séquencement** : seule la **Phase 8** est à traiter maintenant (anti-dette). Les **phases 9→13** se lanceront **après la prochaine série de features**.
-
-## Vue d'ensemble (phases mobile)
-
-| Phase | Contenu | Quand |
-|------|---------|-------|
-| 8 | Fondations « mobile-ready » | **Maintenant** |
-| — | **Lot de features (issues #10–#16)** | **En cours** |
-| 9 | Héberger le backend (HTTPS/WSS) | Après features |
-| 10 | Durcissement multi-origine + auth JWT | Après features |
-| 11 | Intégration Capacitor | Après features |
-| 12 | Notifications push | Après features |
-| 13 | Publication stores | Après features |
+> **Séquencement** : les Phases 16→20 se lancent **après le Bloc 2** (Phases 8→15).
 
 ---
 
-## Phase 8 — Fondations « mobile-ready » 
-
-**But** : poser le minimum qui évite d'accumuler de la dette technique pendant qu'on développe les prochaines features. Tout le reste peut attendre, **pas ça**.
-
-1. **Garde-fous architecturaux documentés** (fait) dans [CLAUDE.md](CLAUDE.md) — section « Mobile-ready guardrails ». Chaque nouvelle feature les respecte par construction : URLs jamais en dur (toujours via `environment.apiBase`/`wsBase`), identité via header `X-Player-Id`, pas d'API navigateur sans fallback WebView, responsive + safe-areas, backend 12-factor, notifications derrière un port.
-2. **CORS par allowlist via env var.** Remplacer `allow_origins=["*"]` ([murder-api/src/api/main.py](murder-api/src/api/main.py)) par une liste lue dans `ALLOWED_ORIGINS` ([murder-api/src/api/config.py](murder-api/src/api/config.py)), incluant à terme les origines WebView (`capacitor://localhost`, `https://localhost`). Changement localisé, supprime le wildcard non-sûr.
-3. **Config runtime du front centralisée.** `apiBase`/`wsBase` restent l'unique source des URLs ; interdire tout nouvel usage de `location.host`/`location.origin` hors de `core/services/realtime.ts`.
-
-> Notes : 8.2 et 8.3 sont de petits chantiers à planifier (non bloquants tant que les garde-fous 8.1 sont respectés). L'auth JWT, plus lourde, est repoussée en Phase 10 car elle reste localisée derrière `dependencies.player_id` et n'accumule donc pas de dette.
-
----
-
-## Lot de features — avant déploiement mobile (issues #10–#16)
-
-**But** : étoffer le jeu avant de lancer le déploiement mobile (Phase 9+). Ce lot s'intercale entre
-la Phase 8 et la Phase 9. Toutes les features respectent les garde-fous « mobile-ready » (Phase 8).
-
-**Méthode de travail** (cf. `CLAUDE.md` › *Dev workflow*) : **une branche par issue** cuttée sur
-`main` (`feat/<n>-<slug>`), **tests à jour + nouveaux tests** (gate 85 % back, ChromeHeadless front),
-**scénarios de validation documentés dans le wiki GitHub** (une page par issue), **PR vers `main`**,
-**revue complète + validation utilisateur avant merge** (squash).
-
-| Issue | Feature | Dépend de |
-|-------|---------|-----------|
-| [#10](https://github.com/JoyceLG/Murder_app/issues/10) | i18n — infrastructure multilingue FR/EN + extraction des textes | — |
-| [#11](https://github.com/JoyceLG/Murder_app/issues/11) | Config de partie : max points & max joueurs + endpoint config hôte | — |
-| [#12](https://github.com/JoyceLG/Murder_app/issues/12) | Missions : bibliothèque locale (localStorage) + onglet de configuration | #10 |
-| [#13](https://github.com/JoyceLG/Murder_app/issues/13) | Missions : pool de partie (contrib. tous joueurs, mode augmenter/remplacer) | #11, #12 |
-| [#14](https://github.com/JoyceLG/Murder_app/issues/14) | i18n — traduire le catalogue de missions par défaut (catalogue → clés) | #10, #13 |
-| [#15](https://github.com/JoyceLG/Murder_app/issues/15) | Gameplay : accusé de réception attaquant avant la prochaine mission | — |
-| [#16](https://github.com/JoyceLG/Murder_app/issues/16) | UX : animations (attaqué / succès / refus / nouvelle mission) | #15 |
-
-**Ordre conseillé** : #10 → #11 → #12 → #13 → #14 → #15 → #16 (l'i18n d'abord pour ne pas
-re-traduire les textes ajoutés ensuite). Milestone GitHub : *« Features pré-déploiement mobile »*.
-
----
-
-## Phase 9 — Héberger le backend en HTTPS/WSS
+## Phase 16 — Héberger le backend en HTTPS/WSS
 
 **But** : rendre l'API joignable par une app mobile (un `docker-compose` local ne suffit pas).
 
@@ -347,7 +487,7 @@ re-traduire les textes ajoutés ensuite). Milestone GitHub : *« Features pré-d
 
 ---
 
-## Phase 10 — Durcissement multi-origine + auth JWT
+## Phase 17 — Durcissement multi-origine + auth JWT
 
 **But** : sécuriser avant toute exposition publique.
 
@@ -356,7 +496,7 @@ re-traduire les textes ajoutés ensuite). Milestone GitHub : *« Features pré-d
 
 ---
 
-## Phase 11 — Intégration Capacitor
+## Phase 18 — Intégration Capacitor
 
 **But** : produire la première app installable (Android, puis iOS).
 
@@ -369,7 +509,7 @@ re-traduire les textes ajoutés ensuite). Milestone GitHub : *« Features pré-d
 
 ---
 
-## Phase 12 — Notifications push
+## Phase 19 — Notifications push
 
 **But** : prévenir le joueur hors-app (élimination à confirmer, confirmation reçue).
 
@@ -378,7 +518,7 @@ re-traduire les textes ajoutés ensuite). Milestone GitHub : *« Features pré-d
 
 ---
 
-## Phase 13 — Publication stores
+## Phase 20 — Publication stores
 
 **But** : mettre les apps en ligne.
 
