@@ -18,7 +18,6 @@ from src.adapters.sql_repository import (
     SqlGameRepository,
     build_engine,
     build_session_factory,
-    create_all,
 )
 from src.adapters.system_clock import SystemClock
 from src.api import routes, websocket
@@ -34,9 +33,10 @@ from src.ports.repository import GameRepository
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # Schema is owned by Alembic, applied before startup by docker-entrypoint.sh
+    # (`alembic upgrade head`). For local Postgres runs, run that command once
+    # yourself. Tests create their schema directly via sql_repository.create_all.
     engine: AsyncEngine | None = app.state.engine
-    if engine is not None:
-        await create_all(engine)  # idempotent; production would use Alembic migrations
     yield
     if engine is not None:
         await engine.dispose()
