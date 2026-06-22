@@ -261,5 +261,11 @@ def build_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessio
 
 
 async def create_all(engine: AsyncEngine) -> None:
+    """Create the schema directly from the models.
+
+    Used only for the ephemeral SQLite databases in the test suite. The persistent
+    PostgreSQL schema is owned by Alembic (`alembic upgrade head`) — never call this
+    in production, or it will diverge from the migration history.
+    """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

@@ -26,6 +26,20 @@ ruff check . && ruff format --check .        # lint + format (line length 100, t
 ```
 SQL adapter integration tests run on **SQLite** by default (fast, no Docker). Set `TEST_DATABASE_URL` to a PostgreSQL DSN to exercise the same adapter against prod's target.
 
+#### Database migrations (Alembic)
+The PostgreSQL schema is owned by **Alembic** (`murder-api/alembic/`), not `create_all`. The Docker
+entrypoint runs `alembic upgrade head` before the API starts; for a local Postgres run, do it once
+yourself. `DATABASE_URL` is read by `alembic/env.py` from the same `Settings` the app uses.
+```bash
+alembic upgrade head                              # apply all pending migrations
+alembic revision --autogenerate -m "add x"        # new migration from a model change
+alembic check                                     # CI guard: fail if models drift from migrations
+alembic downgrade -1                              # roll back one revision
+alembic stamp head                                # mark an existing DB as migrated (no DDL)
+```
+After **any** change to a SQLAlchemy model in `adapters/sql_repository.py`, generate a migration and
+review it. `create_all` is kept only for the ephemeral SQLite test databases (`tests/`), never prod.
+
 ### Frontend (`murder-front/`)
 ```bash
 npm install
