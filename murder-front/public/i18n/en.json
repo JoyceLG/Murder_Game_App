@@ -64,7 +64,8 @@
     "minPlayers": "At least 2 agents required",
     "standby": "Standby",
     "waitingHost": "The host hasn't started yet…",
-    "startError": "Could not start the game"
+    "startError": "Could not start the game",
+    "maxScoreInvalid": "The goal must be at least 1 point."
   },
   "game": {
     "attempt": "Elimination attempt",
@@ -90,7 +91,12 @@
     "nextMission": "Start the next mission",
     "resultNo": "Elimination refused",
     "resultNoLead": "Your target disputes it: no point this time.",
-    "newMission": "New mission"
+    "newMission": "New mission",
+    "swapFree": "free · once only",
+    "swapLocked": "Score a point to be able to swap your mission.",
+    "swapConfirmFree": "This swap is free, but it is the only one: after that, each swap costs 1 point.",
+    "swapYesFree": "Swap (free)",
+    "answerFirst": "Answer the elimination attempt first."
   },
   "dossier": {
     "active": "Active assignment",

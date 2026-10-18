@@ -20,6 +20,7 @@ from src.domain.errors import (
     InvalidGameConfig,
     InvalidMission,
     MissionNotFound,
+    MustAnswerClaimFirst,
     NotAllowedToRemoveMission,
     NoTargetAssigned,
     NotAuthenticated,
@@ -28,6 +29,7 @@ from src.domain.errors import (
     NotTheClaimTarget,
     NotTheHost,
     PlayerNotFound,
+    SwapNotAllowed,
     TooManyPlayers,
 )
 
@@ -51,6 +53,8 @@ STATUS_MAP: dict[type[DomainError], int] = {
     ClaimAlreadyResolved: 409,
     ClaimNotResolved: 409,
     ClaimAwaitingAck: 409,
+    MustAnswerClaimFirst: 409,
+    SwapNotAllowed: 409,
     ConcurrentUpdate: 409,
     CodeSpaceExhausted: 503,
 }

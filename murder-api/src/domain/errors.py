@@ -87,3 +87,11 @@ class ConcurrentUpdate(DomainError):
 
 class NotAuthenticated(DomainError):
     """The caller's player id / session token pair does not match a player of this game."""
+
+
+class SwapNotAllowed(DomainError):
+    """No point to pay for a mission swap and the free swap is already used."""
+
+
+class MustAnswerClaimFirst(DomainError):
+    """A claim on this player awaits their answer: it comes before claiming or swapping."""

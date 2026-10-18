@@ -12,7 +12,7 @@ from tests.builders import make_game
 # --- SwapMission -----------------------------------------------------------------------
 
 
-async def test_swap_mission_rerolls_and_penalizes_and_publishes(repo, clock, picker, notifier):
+async def test_swap_mission_rerolls_and_publishes(repo, clock, picker, notifier):
     game = make_running(clock, picker)
     old_mission = game.players["h"].mission
     await repo.save(game)
@@ -21,7 +21,8 @@ async def test_swap_mission_rerolls_and_penalizes_and_publishes(repo, clock, pic
     result = await uc.execute("ABCD", "h")
 
     assert result.players["h"].mission != old_mission
-    assert result.players["h"].score == -1
+    assert result.players["h"].score == 0  # the one free swap at 0 points
+    assert (await repo.get("ABCD")).players["h"].free_swap_used  # persisted
     assert len(notifier.published) == 1
 
 
@@ -209,3 +210,19 @@ async def test_get_game_marks_ended_when_score_cap_reached(repo, clock, picker, 
 async def test_get_game_unknown_raises_game_not_found(repo, clock, notifier):
     with pytest.raises(GameNotFound):
         await GetGame(repo=repo, clock=clock, notifier=notifier).execute("NOPE")
+
+
+async def test_last_player_standing_in_a_running_game_sees_the_end(repo, clock, picker, notifier):
+    await repo.save(make_running(clock, picker, player_ids=("h", "p2")))
+    result = await _leave(repo, clock, picker, notifier).execute("ABCD", "p2")
+    assert result.status is GameStatus.ENDED
+    assert (await repo.get("ABCD")).status is GameStatus.ENDED
+    assert notifier.published[-1].status is GameStatus.ENDED
+
+
+async def test_reading_a_running_game_left_with_one_player_ends_it(repo, clock, picker, notifier):
+    game = make_running(clock, picker, player_ids=("h", "p2"))
+    del game.players["p2"]  # left before the "last player standing" rule existed
+    await repo.save(game)
+    result = await GetGame(repo=repo, clock=clock, notifier=notifier).execute("ABCD")
+    assert result.status is GameStatus.ENDED

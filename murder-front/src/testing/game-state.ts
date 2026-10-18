@@ -6,8 +6,13 @@ export function player(id: string, score = 0): PlayerDto {
   return { id, name: id.toUpperCase(), score };
 }
 
-export function me(id: string, targetId: string | null, score = 0): MeDto {
-  return { ...player(id, score), mission: 'm', target_id: targetId };
+export function me(
+  id: string,
+  targetId: string | null,
+  score = 0,
+  swapCost: number | null = score > 0 ? 1 : 0,
+): MeDto {
+  return { ...player(id, score), mission: 'm', target_id: targetId, swap_cost: swapCost };
 }
 
 /** A running game seen by player `h` (host, hunting `b`), with a server clock in sync. */

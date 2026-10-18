@@ -2,7 +2,8 @@
 # Run the end-to-end suite (e2e/) against a freshly started stack.
 #
 #   scripts/e2e.sh compose   production-like: docker compose (nginx + API + PostgreSQL), as in CI
-#   scripts/e2e.sh local     no Docker: PostgreSQL from scripts/pg.sh + uvicorn + ng serve
+#   scripts/e2e.sh local     no Docker: PostgreSQL from scripts/pg.sh + uvicorn + ng serve (prod
+#                            build, /games proxied: same origin), on free ports
 #   scripts/e2e.sh           compose if Docker is usable, else local
 #
 # Extra arguments go to pytest, e.g.  scripts/e2e.sh local -k browser --headed
@@ -49,19 +50,24 @@ if [ "$mode" = compose ]; then
   trap cleanup EXIT
   "${COMPOSE[@]}" up -d --build --wait
   wait_for http://localhost:8080/health 60
-  export E2E_APP_URL=http://localhost:8080
+  export E2E_APP_URL=http://localhost:8080 E2E_NGINX=1
   unset E2E_API_URL
   run_suite "$@"
   exit 0
 fi
 
 # --- local: no Docker ------------------------------------------------------------------
-for port in 8000 4200; do
-  if curl -s -o /dev/null "http://localhost:$port"; then
-    echo "port $port is already in use — stop whatever runs there (uvicorn / ng serve) first" >&2
-    exit 1
-  fi
-done
+# The production build of the front, served by `ng serve` with a proxy for /games (REST and
+# WebSocket) and /health: same origin and relative URLs, like behind nginx. Ports are free
+# ones by default, so a dev server or a running compose stack (8000/8080/4200) is no problem.
+# Two distinct free ports, picked while both sockets are held (so they cannot be the same).
+read -r FREE_A FREE_B < <("$PY" -c '
+import socket
+a, b = socket.socket(), socket.socket()
+a.bind(("127.0.0.1", 0)); b.bind(("127.0.0.1", 0))
+print(a.getsockname()[1], b.getsockname()[1])')
+API_PORT="${E2E_API_PORT:-$FREE_A}"
+APP_PORT="${E2E_APP_PORT:-$FREE_B}"
 
 PIDS=()
 cleanup() {
@@ -78,15 +84,23 @@ trap cleanup EXIT
 DB_URL="$("$ROOT/scripts/pg.sh" fresh murder_e2e)"
 (cd "$ROOT/murder-api" && DATABASE_URL="$DB_URL" "$PY" -m alembic upgrade head >/dev/null)
 
-(cd "$ROOT/murder-api" && exec setsid env DATABASE_URL="$DB_URL" ALLOWED_ORIGINS=http://localhost:4200 \
+(cd "$ROOT/murder-api" && exec setsid env DATABASE_URL="$DB_URL" \
   RATE_LIMIT_PER_MINUTE=0 CREATE_RATE_LIMIT_PER_MINUTE=0 LOOKUP_MISS_LIMIT_PER_MINUTE=0 \
-  "$PY" -m uvicorn src.api.main:app --host 127.0.0.1 --port 8000 >"$RESULTS/api.log" 2>&1) &
-PIDS+=($!)
-(cd "$ROOT/murder-front" && exec setsid npx ng serve --port 4200 --no-hmr --no-live-reload \
-  >"$RESULTS/front.log" 2>&1) &
+  "$PY" -m uvicorn src.api.main:app --host 127.0.0.1 --port "$API_PORT" >"$RESULTS/api.log" 2>&1) &
 PIDS+=($!)
 
-wait_for http://localhost:8000/health 60
-wait_for http://localhost:4200/ 180
-export E2E_APP_URL=http://localhost:4200 E2E_API_URL=http://localhost:8000
+cat >"$RESULTS/proxy.json" <<JSON
+{
+  "/games": { "target": "http://127.0.0.1:$API_PORT", "ws": true },
+  "/health": { "target": "http://127.0.0.1:$API_PORT" }
+}
+JSON
+(cd "$ROOT/murder-front" && exec setsid npx ng serve --configuration production --port "$APP_PORT" \
+  --proxy-config "$RESULTS/proxy.json" --no-hmr --no-live-reload >"$RESULTS/front.log" 2>&1) &
+PIDS+=($!)
+
+wait_for "http://127.0.0.1:$API_PORT/health" 60
+wait_for "http://localhost:$APP_PORT/health" 180
+export E2E_APP_URL="http://localhost:$APP_PORT"
+unset E2E_API_URL E2E_NGINX
 run_suite "$@"

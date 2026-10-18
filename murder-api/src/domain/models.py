@@ -52,6 +52,9 @@ class Player:
     # Digest of the player's session secret. The secret itself is handed out once (create/join)
     # and never stored; the public `id` alone no longer proves who the caller is.
     token_hash: str = ""
+    # Each player may swap their mission once for free while they have no point (scores never
+    # go below 0). See rules.swap_cost.
+    free_swap_used: bool = False
 
 
 @dataclass

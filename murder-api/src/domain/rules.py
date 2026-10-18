@@ -11,12 +11,41 @@ from src.domain.errors import (
     ClaimAwaitingAck,
     ClaimNotFound,
     ClaimNotResolved,
+    InvalidGameConfig,
+    MustAnswerClaimFirst,
     NoTargetAssigned,
     PlayerNotFound,
+    SwapNotAllowed,
 )
 from src.domain.missions import MISSION_KEYS, is_catalogue_key
 from src.domain.models import Claim, ClaimStatus, Game, GameStatus, MissionMode, Player
 from src.domain.randomness import Picker, pick_mission_excluding
+
+
+def configure_game(
+    game: Game, max_players: int, max_score: int | None, mission_mode: MissionMode
+) -> None:
+    """The host's lobby settings. The player cap cannot go below the players already in the
+    lobby; a score goal, when set, is at least 1 point (0 or fewer would end the game at once)."""
+    if max_score is not None and max_score < 1:
+        raise InvalidGameConfig()
+    if max_players < len(game.players):
+        raise InvalidGameConfig()
+    game.max_players = max_players
+    game.max_score = max_score
+    game.mission_mode = mission_mode
+
+
+def _too_few_players(game: Game) -> bool:
+    return len(game.players) < 2  # nobody left to hunt
+
+
+def should_end(game: Game, now_ms: int) -> bool:
+    """A running game is over when its clock ran out, a player reached the score goal, or
+    fewer than two players are left (nobody to hunt)."""
+    return game.status is GameStatus.RUNNING and (
+        game.is_time_up(now_ms) or game.score_cap_reached() or _too_few_players(game)
+    )
 
 
 def clamp_duration_min(minutes: int) -> int:
@@ -125,13 +154,16 @@ def open_claim(game: Game, attacker_id: str, ts: int) -> Claim:
     """The attacker says they completed their mission on their target; the target must answer.
 
     One active claim per attacker (a new one replaces a pending one). Not allowed while the
-    attacker still has a result to acknowledge — that check comes first, whatever else holds.
+    attacker still has a result to acknowledge, nor while a claim *on* them awaits their answer
+    (that request has priority) — those checks come first, whatever else holds.
     """
     attacker = game.players.get(attacker_id)
     if attacker is None:
         raise PlayerNotFound(attacker_id)
     if awaiting_ack(game, attacker_id):  # see the last result first
         raise ClaimAwaitingAck()
+    if has_incoming_claim(game, attacker_id):  # a claim on them is answered first
+        raise MustAnswerClaimFirst()
     if not attacker.target_id:
         raise NoTargetAssigned()
     claim = Claim(
@@ -232,15 +264,39 @@ def reassign_targets_away_from(
         )
 
 
+def has_incoming_claim(game: Game, player_id: str) -> bool:
+    """True while someone's claim on this player waits for their answer."""
+    return any(
+        c.target == player_id and c.status is ClaimStatus.PENDING for c in game.claims.values()
+    )
+
+
+def swap_cost(player: Player) -> int | None:
+    """Points a mission swap costs this player now: 1 if they have points, 0 for their one free
+    swap at 0 points, None when they cannot swap (no point and free swap used). Scores never
+    go below 0."""
+    if player.score > 0:
+        return 1
+    return None if player.free_swap_used else 0
+
+
 def swap_mission(game: Game, player_id: str, picker: Picker) -> None:
-    """Reroll the mission for a -1 score penalty (JS: swapMission). Score may go negative."""
+    """Reroll the player's mission (JS: swapMission) for its cost (see `swap_cost`)."""
     player = game.players.get(player_id)
     if player is None:
         raise PlayerNotFound(player_id)
     if awaiting_ack(game, player_id):  # acknowledging deals the next mission anyway
         raise ClaimAwaitingAck()
+    if has_incoming_claim(game, player_id):  # answering comes first
+        raise MustAnswerClaimFirst()
+    cost = swap_cost(player)
+    if cost is None:
+        raise SwapNotAllowed()
     player.mission = pick_mission_excluding(picker, player.mission, effective_missions(game))
-    player.score -= 1
+    if cost:
+        player.score -= cost
+    else:
+        player.free_swap_used = True
 
 
 def remove_player(game: Game, player_id: str, picker: Picker) -> None:
@@ -248,7 +304,8 @@ def remove_player(game: Game, player_id: str, picker: Picker) -> None:
 
     Their own claim goes. A *pending* claim on them can never be answered, so it goes too; a
     *resolved* one is the attacker's result to acknowledge and stays. Their hunters get a new
-    target (`reassign_targets_away_from`), and the host role passes on if they had it.
+    target (`reassign_targets_away_from`), and the host role passes on if they had it. A running
+    game left with a single player ends right away.
     """
     leaver = game.players.pop(player_id, None)
     game.claims.pop(player_id, None)
@@ -260,3 +317,5 @@ def remove_player(game: Game, player_id: str, picker: Picker) -> None:
     reassign_targets_away_from(game, player_id, picker, leaver.target_id if leaver else None)
     if game.host_id == player_id:
         game.host_id = next(iter(game.players))
+    if game.status is GameStatus.RUNNING and _too_few_players(game):
+        finish(game)  # the last player standing ends it (same rule as `should_end`)

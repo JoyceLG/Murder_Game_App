@@ -119,7 +119,7 @@ describe('Game screen', () => {
   it('keeps the kill number on the elimination just confirmed until acknowledged', () => {
     setup(
       gameState({
-        me: { id: 'h', name: 'H', score: 1, mission: 'm', target_id: 'b' },
+        me: me('h', 'b', 1),
         claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'ok' }],
       }),
     );
@@ -146,6 +146,63 @@ describe('Game screen', () => {
     expect(text()).toContain('game.resultNo');
     button('game.newMission').click();
     expect(store.acknowledge).toHaveBeenCalled();
+  });
+
+  // --- #20 -----------------------------------------------------------------------------
+
+  it('offers the one free swap at 0 points, with its own confirmation', () => {
+    setup(gameState({ me: me('h', 'b', 0, 0) }));
+    expect(button('game.swap').textContent).toContain('game.swapFree');
+    button('game.swap').click();
+    fixture.detectChanges();
+    expect(text()).toContain('game.swapConfirmFree');
+    button('game.swapYesFree').click();
+    expect(store.swap).toHaveBeenCalled();
+  });
+
+  it('shows the 1-point cost when the player has points', () => {
+    setup(gameState({ me: me('h', 'b', 2, 1) }));
+    expect(button('game.swap').textContent).toContain('game.swapCost');
+    button('game.swap').click();
+    fixture.detectChanges();
+    expect(text()).toContain('game.swapConfirm');
+    expect(text()).not.toContain('game.swapConfirmFree');
+  });
+
+  it('locks the swap once the free one is used at 0 points, and says why', () => {
+    setup(gameState({ me: me('h', 'b', 0, null) }));
+    expect(button('game.swap').disabled).toBeTrue();
+    expect(button('game.swap').textContent).not.toContain('game.swapFree'); // no "free" on a lock
+    expect(button('game.swap').textContent).not.toContain('game.swapCost');
+    expect(text()).toContain('game.swapLocked');
+  });
+
+  it('keeps showing my own pending claim when a claim on me arrives', () => {
+    setup(
+      gameState({
+        claims: [
+          { atk: 'h', atk_name: 'H', target: 'b', mission: 'x', status: 'pending' },
+          { atk: 'b', atk_name: 'B', target: 'h', mission: 'y', status: 'pending' },
+        ],
+      }),
+    );
+    store.isPending.set(true);
+    fixture.detectChanges();
+    expect(text()).toContain('game.waitingFor');
+    expect(button('game.confirm')).toBeDefined();
+    expect(button('game.kill')).toBeUndefined();
+  });
+
+  it('an elimination attempt on me blocks claiming and swapping until I answer', () => {
+    setup(
+      gameState({
+        claims: [{ atk: 'b', atk_name: 'B', target: 'h', mission: 'x', status: 'pending' }],
+      }),
+    );
+    expect(button('game.kill')).toBeUndefined();
+    expect(button('game.swap')).toBeUndefined();
+    expect(text()).toContain('game.answerFirst');
+    expect(button('game.confirm')).toBeDefined();
   });
 
   it('explains when the viewer is no longer part of the game', () => {

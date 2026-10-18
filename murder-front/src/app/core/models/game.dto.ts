@@ -22,6 +22,8 @@ export interface PlayerDto {
 export interface MeDto extends PlayerDto {
   mission: string;
   target_id: string | null;
+  /** What swapping the mission costs now: 1 point, 0 (the one free swap), null = not allowed. */
+  swap_cost: number | null;
 }
 
 export interface ClaimDto {

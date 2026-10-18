@@ -137,3 +137,16 @@ def test_concurrent_joins_all_land(api):
     state = api.get(f"/games/{code}").json()
     assert {a.id for a in agents} <= {p["id"] for p in state["players"]}
     assert len(state["players"]) == 7
+
+
+def test_last_player_standing_ends_the_game(api):
+    code, alice = new_game(api)
+    bob = join(api, code, "Bob")
+    assert api.post(
+        f"/games/{code}/start", json={"duration_min": 10}, headers=alice.headers
+    ).is_success
+    live = Live(code, alice)
+    live.next_state()
+    assert api.request("DELETE", f"/games/{code}/players/me", headers=bob.headers).is_success
+    assert live.next_state(lambda s: s["status"] == "ended")["status"] == "ended"
+    live.close()

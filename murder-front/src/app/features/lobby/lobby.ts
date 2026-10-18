@@ -36,7 +36,14 @@ import { Seal } from '../../shared/seal/seal';
             <h2>{{ 'lobby.settings' | transloco }}</h2>
             <label class="field">
               <span class="lbl">{{ 'lobby.duration' | transloco }}</span>
-              <input type="number" min="1" max="240" inputmode="numeric" [(ngModel)]="duration" />
+              <input
+                type="number"
+                min="1"
+                max="240"
+                inputmode="numeric"
+                [(ngModel)]="duration"
+                (keydown)="blockSign($event)"
+              />
             </label>
             <label class="field">
               <span class="lbl">{{ 'lobby.maxPlayers' | transloco }}</span>
@@ -46,6 +53,7 @@ import { Seal } from '../../shared/seal/seal';
                 max="12"
                 inputmode="numeric"
                 [(ngModel)]="maxPlayers"
+                (keydown)="blockSign($event)"
                 (change)="applyConfig()"
               />
             </label>
@@ -54,10 +62,13 @@ import { Seal } from '../../shared/seal/seal';
               <input
                 type="number"
                 min="1"
+                step="1"
                 inputmode="numeric"
                 [placeholder]="'lobby.noLimit' | transloco"
                 [(ngModel)]="maxScore"
-                (change)="applyConfig()"
+                (keydown)="blockSign($event)"
+                (change)="applyConfig(scoreField)"
+                #scoreField
               />
             </label>
             <button
@@ -209,16 +220,30 @@ export class Lobby {
     void this.applyConfig();
   }
 
-  async applyConfig(): Promise<void> {
+  /** `scoreField`: the goal input, to tell "left empty" from "not a number" (pasted text). */
+  async applyConfig(scoreField?: { validity: { badInput: boolean } }): Promise<void> {
     const players = Math.max(2, Math.min(12, Number(this.maxPlayers) || 12));
     this.maxPlayers = players;
-    const score = this.maxScore && this.maxScore >= 1 ? Math.floor(this.maxScore) : null;
+    const typed =
+      this.maxScore === null || String(this.maxScore) === '' ? null : Number(this.maxScore);
+    if (scoreField?.validity.badInput || (typed !== null && !(typed >= 1))) {
+      // 0 or fewer points would end the game at once: refuse and keep the current goal.
+      this.toast.show(this.i18n.translate('lobby.maxScoreInvalid'), 'bad');
+      this.maxScore = this.state()?.max_score ?? null;
+      return;
+    }
+    const score = typed === null ? null : Math.floor(typed);
     this.maxScore = score;
     try {
       await this.store.updateConfig(players, score, this.missionMode);
     } catch {
       this.toast.show(this.i18n.translate('lobby.configError'), 'bad');
     }
+  }
+
+  /** Number inputs accept "-", "+" and "e": none of them makes sense for a count. */
+  blockSign(event: KeyboardEvent): void {
+    if (['-', '+', 'e', 'E', '.', ','].includes(event.key)) event.preventDefault();
   }
 
   async addToPool(text = this.draft): Promise<void> {

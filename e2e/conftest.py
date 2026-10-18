@@ -1,10 +1,9 @@
 """End-to-end fixtures. The stack under test is given by environment variables:
 
 E2E_APP_URL  where the Angular app is served (default http://localhost:8080, the compose front)
-E2E_API_URL  where the API answers (default: same as the app, i.e. through nginx)
-
-When both are the same origin the suite also checks the nginx-specific behaviour (headers,
-caching, SPA fallback); against `ng serve` + uvicorn those checks are skipped.
+E2E_API_URL  where the API answers (default: same as the app — through nginx or a dev proxy)
+E2E_NGINX=1  the app is served by the production nginx: also check its headers, caching and
+             SPA fallback (scripts/e2e.sh compose sets it; skipped otherwise)
 """
 
 from __future__ import annotations
@@ -23,13 +22,13 @@ from websockets.sync.client import ClientConnection, connect
 APP_URL = os.environ.get("E2E_APP_URL", "http://localhost:8080").rstrip("/")
 API_URL = os.environ.get("E2E_API_URL", APP_URL).rstrip("/")
 WS_URL = "ws" + API_URL.removeprefix("http")
-BEHIND_NGINX = APP_URL == API_URL
+BEHIND_NGINX = os.environ.get("E2E_NGINX") == "1"
 
 
 def pytest_collection_modifyitems(config, items):
     if BEHIND_NGINX:
         return
-    skip = pytest.mark.skip(reason="not behind the nginx front (E2E_API_URL != E2E_APP_URL)")
+    skip = pytest.mark.skip(reason="not behind the production nginx (set E2E_NGINX=1)")
     for item in items:
         if "nginx" in item.keywords:
             item.add_marker(skip)

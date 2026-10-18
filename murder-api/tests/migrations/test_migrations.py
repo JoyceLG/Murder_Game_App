@@ -113,3 +113,33 @@ async def test_0002_keeps_existing_games_playable(database_url):
         assert (await repo.get("OLD1")).players["h"].score == 4
     finally:
         await engine.dispose()
+
+
+async def test_0003_clamps_negative_scores_and_grants_the_free_swap(database_url):
+    ok(alembic(database_url, "upgrade", "0002_version_token"))
+    engine = build_engine(database_url)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text(
+                "INSERT INTO games VALUES "
+                "('NEG1', 'h', 'running', 900, 1, 2, 12, NULL, 'augment', 1, 1)"
+            )
+        )
+        await conn.execute(
+            text(
+                "INSERT INTO players VALUES ('NEG1', 'h', 'Host', -2, 'm', NULL, 1, ''), "
+                "('NEG1', 'b', 'Bob', 3, 'm', NULL, 2, '')"
+            )
+        )
+    await engine.dispose()
+
+    ok(alembic(database_url, "upgrade", "head"))
+
+    engine = build_engine(database_url)
+    try:
+        game = await SqlGameRepository(build_session_factory(engine)).get("NEG1")
+        assert game.players["h"].score == 0  # scores never go below 0 any more
+        assert game.players["b"].score == 3
+        assert not game.players["h"].free_swap_used
+    finally:
+        await engine.dispose()

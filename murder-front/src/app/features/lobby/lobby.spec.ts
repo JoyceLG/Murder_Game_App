@@ -47,6 +47,57 @@ describe('Lobby screen', () => {
     expect(store.addMission).not.toHaveBeenCalled();
   });
 
+  it('refuses a score goal below 1 instead of silently clearing it', async () => {
+    setup(gameState({ status: 'lobby', end_at: 0, max_score: 5 }));
+    const lobby = fixture.componentInstance;
+    lobby.maxScore = -2;
+    await lobby.applyConfig();
+    expect(toast.show).toHaveBeenCalledWith('lobby.maxScoreInvalid', 'bad');
+    expect(store.updateConfig).not.toHaveBeenCalled();
+    expect(lobby.maxScore).toBe(5); // back to the current goal
+  });
+
+  it('refuses pasted text that is not a number instead of clearing the goal', async () => {
+    setup(gameState({ status: 'lobby', end_at: 0, max_score: 5 }));
+    const lobby = fixture.componentInstance;
+    lobby.maxScore = null; // what the number input reports for "abc"
+    await lobby.applyConfig({ validity: { badInput: true } });
+    expect(toast.show).toHaveBeenCalledWith('lobby.maxScoreInvalid', 'bad');
+    expect(store.updateConfig).not.toHaveBeenCalled();
+    expect(lobby.maxScore as number | null).toBe(5);
+  });
+
+  it('blocks signs in every number field of the lobby', () => {
+    setup();
+    const inputs = (fixture.nativeElement as HTMLElement).querySelectorAll('input[type=number]');
+    expect(inputs.length).toBe(3);
+    for (const input of Array.from(inputs)) {
+      const event = new KeyboardEvent('keydown', { key: '-', cancelable: true });
+      input.dispatchEvent(event);
+      expect(event.defaultPrevented).toBeTrue();
+    }
+  });
+
+  it('still allows clearing the goal (no limit)', async () => {
+    setup();
+    const lobby = fixture.componentInstance;
+    lobby.maxScore = null;
+    await lobby.applyConfig();
+    expect(store.updateConfig).toHaveBeenCalledWith(12, null, 'augment');
+  });
+
+  it('does not let a sign be typed in the number fields', () => {
+    setup();
+    for (const key of ['-', '+', 'e']) {
+      const event = new KeyboardEvent('keydown', { key, cancelable: true });
+      fixture.componentInstance.blockSign(event);
+      expect(event.defaultPrevented).withContext(key).toBeTrue();
+    }
+    const digit = new KeyboardEvent('keydown', { key: '3', cancelable: true });
+    fixture.componentInstance.blockSign(digit);
+    expect(digit.defaultPrevented).toBeFalse();
+  });
+
   it('marks the active mission mode for assistive tech', () => {
     setup();
     const pressed = [...el().querySelectorAll('button[aria-pressed="true"]')].map((b) =>

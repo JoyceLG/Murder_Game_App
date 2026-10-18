@@ -8,22 +8,29 @@ from src.domain.errors import (
     ClaimAwaitingAck,
     ClaimNotFound,
     ClaimNotResolved,
+    InvalidGameConfig,
+    MustAnswerClaimFirst,
     NoTargetAssigned,
     PlayerNotFound,
+    SwapNotAllowed,
 )
 from src.domain.missions import MISSION_KEYS
-from src.domain.models import ClaimStatus, GameStatus
+from src.domain.models import ClaimStatus, GameStatus, MissionMode
 from src.domain.randomness import RandomPicker
 from src.domain.rules import (
     advance_after_resolution,
     assign_targets,
     awaiting_ack,
     clamp_duration_min,
+    configure_game,
     finish,
+    has_incoming_claim,
     mark_resolved,
     open_claim,
     reassign_targets_away_from,
     remove_player,
+    should_end,
+    swap_cost,
     swap_mission,
 )
 from tests.builders import add_claim, make_game, running_game
@@ -262,11 +269,91 @@ def test_swap_mission_changes_mission_and_decrements_score():
     assert game.players["alice"].score == 1
 
 
-def test_swap_mission_can_make_score_negative():
+def test_first_swap_at_zero_points_is_free_and_only_once():
     game = running_game(["alice", "bob"], FirstPicker())
-    assert game.players["alice"].score == 0
+    alice = game.players["alice"]
+    old_mission = alice.mission
+    assert swap_cost(alice) == 0
+
     swap_mission(game, "alice", FirstPicker())
-    assert game.players["alice"].score == -1
+
+    assert alice.mission != old_mission
+    assert alice.score == 0  # never negative
+    assert alice.free_swap_used
+    assert swap_cost(alice) is None
+    with pytest.raises(SwapNotAllowed):
+        swap_mission(game, "alice", FirstPicker())
+    assert alice.score == 0
+
+
+def test_swap_costs_a_point_when_the_player_has_some():
+    game = running_game(["alice", "bob"], FirstPicker())
+    alice = game.players["alice"]
+    alice.score = 1
+    assert swap_cost(alice) == 1
+    swap_mission(game, "alice", FirstPicker())
+    assert alice.score == 0
+    assert not alice.free_swap_used  # the free swap is kept for later
+    assert swap_cost(alice) == 0
+
+
+def test_score_never_goes_below_zero_through_swaps():
+    game = running_game(["alice", "bob"], FirstPicker())
+    alice = game.players["alice"]
+    alice.score = 2
+    for _ in range(3):  # 2 paid swaps + the free one
+        swap_mission(game, "alice", FirstPicker())
+    assert alice.score == 0
+    with pytest.raises(SwapNotAllowed):
+        swap_mission(game, "alice", FirstPicker())
+
+
+# --- #20: an incoming claim must be answered first -------------------------------------
+
+
+def test_incoming_claim_blocks_claiming_and_swapping():
+    game = running_game(["a", "b", "c"], FirstPicker())  # a -> b -> c -> a
+    add_claim(game, "a")  # b must answer a's claim
+    assert has_incoming_claim(game, "b")
+    with pytest.raises(MustAnswerClaimFirst):
+        open_claim(game, "b", ts=1)
+    with pytest.raises(MustAnswerClaimFirst):
+        swap_mission(game, "b", FirstPicker())
+    assert game.players["b"].score == 0 and not game.players["b"].free_swap_used
+
+    mark_resolved(game, "a", confirmed=False)  # once answered, b is free again
+    assert not has_incoming_claim(game, "b")
+    open_claim(game, "b", ts=2)
+
+
+def test_two_players_cannot_claim_each_other_at_the_same_time():
+    game = running_game(["a", "b"], FirstPicker())  # a <-> b
+    open_claim(game, "a", ts=1)
+    with pytest.raises(MustAnswerClaimFirst):
+        open_claim(game, "b", ts=2)
+
+
+# --- #20: the last player standing ends the game ---------------------------------------
+
+
+def test_running_game_ends_when_one_player_remains():
+    game = running_game(["a", "b"], FirstPicker())
+    add_claim(game, "a")
+    remove_player(game, "b", FirstPicker())
+    assert game.status is GameStatus.ENDED
+    assert game.claims == {}
+
+
+def test_running_game_with_players_left_keeps_going():
+    game = running_game(["a", "b", "c"], FirstPicker())
+    remove_player(game, "c", FirstPicker())
+    assert game.status is GameStatus.RUNNING
+
+
+def test_lobby_with_one_player_is_not_ended():
+    game = make_game(["host", "guest"])
+    remove_player(game, "guest", FirstPicker())
+    assert game.status is GameStatus.LOBBY
 
 
 def test_swap_mission_unknown_player_raises():
@@ -482,3 +569,32 @@ def test_remove_last_player_leaves_an_empty_game():
     game = make_game(["solo"])
     remove_player(game, "solo", FirstPicker())
     assert game.players == {}
+
+
+def test_should_end_covers_clock_score_goal_and_lone_player():
+    game = running_game(["a", "b"], FirstPicker())
+    game.end_at = 1_000
+    assert not should_end(game, now_ms=999)
+    assert should_end(game, now_ms=1_000)
+    game.max_score = 1
+    game.players["a"].score = 1
+    assert should_end(game, now_ms=0)
+    lone = running_game(["a", "b"], FirstPicker())
+    del lone.players["b"]  # e.g. a game left with one player before this rule existed
+    assert should_end(lone, now_ms=0)
+    lone.status = GameStatus.LOBBY
+    assert not should_end(lone, now_ms=0)
+
+
+def test_configure_game_validates_the_goal_and_the_cap():
+    game = make_game(["h", "p2", "p3"])
+    configure_game(game, max_players=4, max_score=3, mission_mode=MissionMode.REPLACE)
+    assert (game.max_players, game.max_score, game.mission_mode) == (4, 3, MissionMode.REPLACE)
+    configure_game(game, max_players=4, max_score=None, mission_mode=MissionMode.AUGMENT)
+    assert game.max_score is None
+    for players, goal in ((4, 0), (4, -1), (2, None)):
+        with pytest.raises(InvalidGameConfig):
+            configure_game(
+                game, max_players=players, max_score=goal, mission_mode=MissionMode.AUGMENT
+            )
+    assert game.max_players == 4

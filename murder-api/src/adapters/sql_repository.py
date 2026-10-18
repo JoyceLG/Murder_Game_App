@@ -16,7 +16,16 @@ ConcurrentUpdate (HTTP 409) instead of an IntegrityError or a silently lost upda
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, ForeignKey, Integer, String, delete, select, update
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    ForeignKey,
+    Integer,
+    String,
+    delete,
+    select,
+    update,
+)
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -73,6 +82,7 @@ class PlayerRow(Base):
     target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     joined_at: Mapped[int] = mapped_column(BigInteger, default=0)
     token_hash: Mapped[str] = mapped_column(String(64), default="")
+    free_swap_used: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class ClaimRow(Base):
@@ -131,6 +141,7 @@ def _to_domain(
             target_id=row.target_id,
             joined_at=row.joined_at,
             token_hash=row.token_hash,
+            free_swap_used=row.free_swap_used,
         )
     for row in claim_rows:
         game.claims[row.atk] = Claim(
@@ -238,6 +249,7 @@ class SqlGameRepository:
                         target_id=player.target_id,
                         joined_at=player.joined_at,
                         token_hash=player.token_hash,
+                        free_swap_used=player.free_swap_used,
                     )
                 )
             for claim in game.claims.values():

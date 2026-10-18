@@ -51,6 +51,7 @@ class MeOut(PlayerOut):
 
     mission: str
     target_id: str | None
+    swap_cost: int | None  # 1 point, 0 (the one free swap at 0 points), None = cannot swap
 
 
 class ClaimOut(BaseModel):

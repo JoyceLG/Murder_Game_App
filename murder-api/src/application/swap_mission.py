@@ -1,4 +1,4 @@
-"""Use case: a player swaps their current mission for a -1 score penalty."""
+"""Use case: a player swaps their current mission: 1 point, or their one free swap at 0 points."""
 
 from __future__ import annotations
 
@@ -26,7 +26,8 @@ class SwapMission:
         settle_end(game, self.clock)
         if game.status is not GameStatus.RUNNING:
             raise GameNotRunning(code)
-        swap_mission(game, player_id, self.picker)  # PlayerNotFound / ClaimAwaitingAck
+        # PlayerNotFound, ClaimAwaitingAck, MustAnswerClaimFirst, SwapNotAllowed (see rules)
+        swap_mission(game, player_id, self.picker)
         await self.repo.save(game)
         await self.notifier.publish(game)
         return game
