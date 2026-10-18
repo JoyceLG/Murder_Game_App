@@ -9,7 +9,8 @@
     "home": "Home",
     "notInGame": "You are no longer part of this game.",
     "actionFailed": "That didn't work, try again.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "missionReserved": "This text is reserved for default missions (“core.NN” format)."
   },
   "home": {
     "eyebrow": "Classified assignments",
@@ -76,13 +77,14 @@
     "swap": "Change mission",
     "swapCost": "−1 pt",
     "ranking": "Standings",
-    "quotedMission": "“{{mission}}”",
     "claimFailed": "Claim refused",
     "swapConfirm": "Swapping your mission costs 1 point.",
     "swapYes": "Swap (−1 pt)",
     "endGame": "End the game",
     "endConfirm": "End the game for every agent?",
-    "endYes": "End now"
+    "endYes": "End now",
+    "quoteOpen": "“",
+    "quoteClose": "”"
   },
   "dossier": {
     "active": "Active assignment",
@@ -135,5 +137,39 @@
       "en": "English"
     },
     "missionLabel": "Mission"
+  },
+  "missions": {
+    "core": {
+      "01": "Get your target to say “yes” three times in a row.",
+      "02": "Take a selfie with your target.",
+      "03": "Compliment your target on their shoes.",
+      "04": "Find out your target's date of birth.",
+      "05": "Make your target laugh without telling a joke.",
+      "06": "Touch your target's elbow without them noticing.",
+      "07": "Get your target to say the word “banana”.",
+      "08": "Swap an object with your target.",
+      "09": "Give your target a high five.",
+      "10": "Convince your target to follow you into another room.",
+      "11": "Get your target to say “I don't know”.",
+      "12": "Ask your target what time it is.",
+      "13": "Clink glasses with your target.",
+      "14": "Find out the name of your target's first pet.",
+      "15": "Get your target to sing, even just one word.",
+      "16": "Rest your hand on your target's shoulder for 3 seconds.",
+      "17": "Get a “thank you” out of your target.",
+      "18": "Get your target to imitate an animal.",
+      "19": "Find out your target's favourite film.",
+      "20": "Get your target to raise both hands at the same time.",
+      "21": "Make your target yawn.",
+      "22": "Get your target to name three countries.",
+      "23": "Take a photo of your target's hand.",
+      "24": "Get your target to say “of course”.",
+      "25": "Borrow your target's phone for 5 seconds.",
+      "26": "Get your target to dance — one step is enough.",
+      "27": "Find out your target's shoe size.",
+      "28": "Get your target to spell their first name.",
+      "29": "Get your target to say “you're the culprit”.",
+      "30": "Find out your target's dream job."
+    }
   }
 }

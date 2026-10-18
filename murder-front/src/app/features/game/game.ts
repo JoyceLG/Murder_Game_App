@@ -6,6 +6,7 @@ import { Toast } from '../../core/services/toast';
 import { Dossier } from '../../shared/dossier/dossier';
 import { Hud } from '../../shared/hud/hud';
 import { IdLine } from '../../shared/id-line/id-line';
+import { MissionText } from '../../shared/mission-text/mission-text';
 import { Notice } from '../../shared/notice/notice';
 import { Roster } from '../../shared/roster/roster';
 
@@ -13,7 +14,7 @@ type Confirming = 'swap' | 'end' | null;
 
 @Component({
   selector: 'app-game',
-  imports: [TranslocoPipe, IdLine, Hud, Dossier, Roster, Notice],
+  imports: [TranslocoPipe, IdLine, Hud, Dossier, Roster, Notice, MissionText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (state(); as s) {
@@ -32,9 +33,11 @@ type Confirming = 'swap' | 'end' | null;
             <span class="stamp">{{ 'game.attempt' | transloco }}</span>
             <p class="ctext">
               <b>{{ inc.atk_name }}</b> {{ 'game.claimedBy' | transloco }}<br />
-              <span class="muted">{{
-                'game.quotedMission' | transloco: { mission: inc.mission }
-              }}</span>
+              <span class="muted"
+                >{{ 'game.quoteOpen' | transloco }}<app-mission-text [mission]="inc.mission" />{{
+                  'game.quoteClose' | transloco
+                }}</span
+              >
             </p>
             <div class="btn-row">
               <button class="btn ghost" [disabled]="busy()" (click)="confirm(false)">

@@ -4,6 +4,7 @@ import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 
 import { MissionMode } from '../../core/models/game.dto';
 import { GameStore } from '../../core/services/game-store';
+import { isCatalogueKey } from '../../core/missions';
 import { Language } from '../../core/services/language';
 import { MissionLibrary } from '../../core/services/mission-library';
 import { Toast } from '../../core/services/toast';
@@ -223,6 +224,10 @@ export class Lobby {
   async addToPool(text = this.draft): Promise<void> {
     const value = text.trim();
     if (!value) return;
+    if (isCatalogueKey(value)) {
+      this.toast.show(this.i18n.translate('common.missionReserved'), 'bad');
+      return;
+    }
     try {
       await this.store.addMission(value);
       if (text === this.draft) this.draft = '';

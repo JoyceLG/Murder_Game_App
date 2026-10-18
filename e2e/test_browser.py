@@ -2,14 +2,17 @@
 
 import re
 
+import httpx
 import pytest
 from playwright.sync_api import Browser, Page, expect
 
 pytestmark = pytest.mark.browser
 
 
-def _agent(browser: Browser, browser_context_args: dict, errors: list[str]) -> Page:
-    page = browser.new_context(**browser_context_args).new_page()
+def _agent(
+    browser: Browser, browser_context_args: dict, errors: list[str], locale: str = "fr-FR"
+) -> Page:
+    page = browser.new_context(**{**browser_context_args, "locale": locale}).new_page()
     page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
     page.on("console", lambda m: m.type == "error" and errors.append(f"console: {m.text}"))
     return page
@@ -45,6 +48,9 @@ def test_two_agents_play_a_full_game(browser, browser_context_args, base_url):
     guest.wait_for_url(f"**/g/{code}/play")
     expect(host.locator(".dossier .target b")).to_have_text("Invité")
     expect(guest.locator(".dossier .target b")).to_have_text("Hôte")
+    # missions are shown translated, never as a raw catalogue key
+    expect(host.locator(".dossier .mtext")).not_to_be_empty()
+    expect(host.locator(".dossier .mtext")).not_to_have_text(re.compile(r"core\.\d+|missions\."))
 
     # A refresh keeps the guest in the game (stored session + secret)
     guest.reload()
@@ -78,6 +84,42 @@ def test_two_agents_play_a_full_game(browser, browser_context_args, base_url):
     host.reload()
     expect(host.locator(".roster li")).to_have_count(2)
 
+    assert errors == [], errors
+
+
+def _catalogue(base_url: str, lang: str) -> set[str]:
+    texts = httpx.get(f"{base_url}/i18n/{lang}.json").json()["missions"]["core"].values()
+    return set(texts)
+
+
+def test_each_agent_reads_default_missions_in_their_own_language(
+    browser, browser_context_args, base_url
+):
+    errors: list[str] = []
+    french = _agent(browser, browser_context_args, errors)
+    english = _agent(browser, browser_context_args, errors, locale="en-US")
+
+    french.goto(f"{base_url}/")
+    french.get_by_placeholder("Ex. Corbeau").fill("Hôte")
+    french.get_by_role("button", name="Créer une partie").click()
+    french.wait_for_url(re.compile(r"/g/[A-Z0-9]{4}$"))
+    code = french.url.rsplit("/", 1)[-1]
+
+    english.goto(f"{base_url}/")
+    english.get_by_placeholder("e.g. Raven").fill("Guest")
+    english.get_by_placeholder("••••").fill(code)
+    english.get_by_role("button", name="Join").click()
+    english.wait_for_url(f"**/g/{code}")
+
+    french.get_by_role("button", name="Lancer l'opération").click()
+    french.wait_for_url(f"**/g/{code}/play")
+    english.wait_for_url(f"**/g/{code}/play")
+
+    mission = ".dossier .mtext"
+    expect(french.locator(mission)).not_to_be_empty()
+    expect(english.locator(mission)).not_to_be_empty()
+    assert french.locator(mission).inner_text() in _catalogue(base_url, "fr")
+    assert english.locator(mission).inner_text() in _catalogue(base_url, "en")
     assert errors == [], errors
 
 

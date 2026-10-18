@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 from src.application._support import get_game_or_404
 from src.domain.errors import GameAlreadyStarted, InvalidMission, PlayerNotFound
+from src.domain.missions import is_catalogue_key
 from src.domain.models import Game, GameStatus, PooledMission
 from src.ports.identifiers import IdGenerator
 from src.ports.notifier import RealtimeNotifier
@@ -33,6 +34,8 @@ class AddMissionToPool:
             raise PlayerNotFound(player_id)
         cleaned = text.strip()
         if not cleaned or len(cleaned) > MAX_MISSION_LEN:
+            raise InvalidMission()
+        if is_catalogue_key(cleaned):  # reserved for the translated default catalogue
             raise InvalidMission()
         if len(game.mission_pool) >= MAX_POOL_SIZE:
             raise InvalidMission()

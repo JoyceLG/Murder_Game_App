@@ -108,6 +108,15 @@ WebSocket protocol (`api/websocket.py`): connect to `/games/{code}/live`, send `
 - End-of-game is **lazy** — computed at read time via `settle_end`, no scheduler. A read that flips a
   game to ENDED also publishes it. The only background task is housekeeping: `PurgeStaleGames` deletes
   games older than `GAME_TTL_HOURS` (lifespan loop in `api/main.py`).
+- **Default missions are translation keys** (`core.01`…`core.30`, `domain/missions.py`): the server
+  deals keys, each client renders them in its own language (`missions.core.*` in `fr.json`/`en.json`,
+  via `shared/mission-text`). Custom missions are literal text, shown as typed and never passed to
+  Transloco; text that is exactly `core.<ASCII digits>` is refused (API 422, front toast). The key
+  rule is an exact `core\.[0-9]+` match on both sides — keep `domain/missions.py` and
+  `front core/missions.ts` identical. Adding a catalogue mission = bump `CATALOGUE_SIZE` + add the
+  fr/en entries (`tests/test_catalogue_translations.py` enforces it). **Never renumber or reuse a
+  key**: clients with older translation files (open tabs, future installed mobile builds) would show
+  another mission or the raw key.
 - Target assignment is a **ring** (`rules.assign_targets`): everyone hunts one player and is hunted by
   one. After a confirmed kill the attacker swaps targets with another hunter when that keeps the ring
   (see `_retarget_after_kill`); leavers hand their target to their hunter.

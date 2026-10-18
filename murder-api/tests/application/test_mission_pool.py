@@ -38,6 +38,27 @@ async def test_add_mission_rejects_blank(repo, notifier):
         await _add(repo, notifier).execute("ABCD", "h", "   ")
 
 
+@pytest.mark.parametrize("text", ["core.01", "core.42", "  core.7  "])
+async def test_add_mission_rejects_catalogue_shaped_text(repo, notifier, text):
+    # Clients translate `core.NN`: a custom mission shaped like that would never show as typed.
+    await repo.save(make_game(["h"], code="ABCD", host="h"))
+    with pytest.raises(InvalidMission):
+        await _add(repo, notifier).execute("ABCD", "h", text)
+
+
+async def test_add_mission_keeps_lookalikes_as_literal_text(repo, notifier):
+    # Not keys for the server *nor* for the front (same exact [0-9] rule): shown as typed.
+    await repo.save(make_game(["h"], code="ABCD", host="h"))
+    game = await _add(repo, notifier).execute("ABCD", "h", "core.١٢")
+    assert game.mission_pool[0].text == "core.١٢"
+
+
+async def test_add_mission_accepts_text_that_merely_mentions_a_key(repo, notifier):
+    await repo.save(make_game(["h"], code="ABCD", host="h"))
+    game = await _add(repo, notifier).execute("ABCD", "h", "core.01 est ma préférée")
+    assert game.mission_pool[0].text == "core.01 est ma préférée"
+
+
 async def test_add_mission_after_start_raises(repo, notifier):
     game = make_game(["h", "p2"], code="ABCD", host="h")
     game.status = GameStatus.RUNNING

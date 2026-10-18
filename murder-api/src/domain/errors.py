@@ -30,7 +30,7 @@ class InvalidGameConfig(DomainError):
 
 
 class InvalidMission(DomainError):
-    """A custom mission is empty, too long, or the pool is full."""
+    """A custom mission is empty, too long, shaped like a catalogue key, or the pool is full."""
 
 
 class MissionNotFound(DomainError):

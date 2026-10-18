@@ -1,9 +1,9 @@
 """A whole game over the real network path: REST + WebSocket, PostgreSQL, (nginx)."""
 
+import re
 from collections import Counter
 
 import pytest
-
 from conftest import Agent, Live, join, new_game
 
 
@@ -26,14 +26,20 @@ def test_full_game(api, table):
     by_id = {a.id: a for a in (alice, bob, carol)}
 
     # --- start: everyone gets their own view, and the targets form one ring --------------
-    assert api.post(f"/games/{code}/start", json={"duration_min": 10}, headers=alice.headers).is_success
-    views = {pid: live.next_state(lambda s: s["status"] == "running") for pid, live in lives.items()}
+    assert api.post(
+        f"/games/{code}/start", json={"duration_min": 10}, headers=alice.headers
+    ).is_success
+    views = {
+        pid: live.next_state(lambda s: s["status"] == "running") for pid, live in lives.items()
+    }
     targets = {pid: view["me"]["target_id"] for pid, view in views.items()}
     assert all(views[pid]["me"]["id"] == pid for pid in views)
     assert all(target != pid for pid, target in targets.items())
     assert Counter(targets.values()) == Counter({pid: 1 for pid in by_id})
     for view in views.values():  # nobody receives anybody else's secrets
         assert all(set(p) == {"id", "name", "score"} for p in view["players"])
+        # default missions travel as catalogue keys, translated by each client
+        assert re.fullmatch(r"core\.\d{2}", view["me"]["mission"])
 
     # --- Alice claims; only her target is asked to confirm --------------------------------
     victim = by_id[targets[alice.id]]
@@ -46,13 +52,17 @@ def test_full_game(api, table):
     # The bystander knows Alice's id and the victim's id, but cannot answer in the victim's name.
     forged = Agent(victim.id, bystander.token, "forged")
     response = api.post(
-        f"/games/{code}/claims/{alice.id}/confirm", json={"confirmed": True}, headers=forged.headers
+        f"/games/{code}/claims/{alice.id}/confirm",
+        json={"confirmed": True},
+        headers=forged.headers,
     )
     assert response.status_code == 401
 
     # --- the victim confirms: Alice scores, live --------------------------------------------
     response = api.post(
-        f"/games/{code}/claims/{alice.id}/confirm", json={"confirmed": True}, headers=victim.headers
+        f"/games/{code}/claims/{alice.id}/confirm",
+        json={"confirmed": True},
+        headers=victim.headers,
     )
     assert response.status_code == 200
     scored = lives[alice.id].next_state(lambda s: s["me"]["score"] == 1)

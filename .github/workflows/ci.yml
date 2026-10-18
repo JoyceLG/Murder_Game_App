@@ -45,6 +45,9 @@ jobs:
       - run: pip install -r requirements.txt
       - run: ruff check .
       - run: ruff format --check .
+      # the e2e suite and helper scripts follow the API's ruff settings
+      - run: ruff check --config pyproject.toml ../e2e ../scripts
+      - run: ruff format --check --config pyproject.toml ../e2e ../scripts
       # Apply migrations to the real Postgres, then fail if the models have drifted
       # from the recorded migrations (the guard for the max_players-style schema gap).
       - run: alembic upgrade head

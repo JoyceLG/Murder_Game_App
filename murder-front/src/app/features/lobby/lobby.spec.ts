@@ -40,6 +40,13 @@ describe('Lobby screen', () => {
     expect(store.start).toHaveBeenCalledTimes(1);
   });
 
+  it('refuses a pool mission shaped like a catalogue key before calling the server', async () => {
+    setup();
+    await fixture.componentInstance.addToPool('core.09');
+    expect(toast.show).toHaveBeenCalledWith('common.missionReserved', 'bad');
+    expect(store.addMission).not.toHaveBeenCalled();
+  });
+
   it('marks the active mission mode for assistive tech', () => {
     setup();
     const pressed = [...el().querySelectorAll('button[aria-pressed="true"]')].map((b) =>

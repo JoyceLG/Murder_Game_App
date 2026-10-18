@@ -24,6 +24,14 @@ describe('MissionLibrary', () => {
     expect(reloaded.missions()[0].text).toBe('Fais rire ta cible');
   });
 
+  it('refuses text shaped like a catalogue key', () => {
+    expect(lib.add('core.05')).toBeFalse();
+    expect(lib.missions()).toEqual([]);
+    expect(lib.add('Danse')).toBeTrue();
+    expect(lib.update(lib.missions()[0].id, 'core.05')).toBeFalse();
+    expect(lib.missions()[0].text).toBe('Danse');
+  });
+
   it('ignores blank additions', () => {
     lib.add('   ');
     expect(lib.missions()).toEqual([]);

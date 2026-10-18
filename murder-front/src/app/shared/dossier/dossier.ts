@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 
+import { MissionText } from '../mission-text/mission-text';
+
 @Component({
   selector: 'app-dossier',
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, MissionText],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="dossier">
@@ -13,7 +15,7 @@ import { TranslocoPipe } from '@jsverse/transloco';
           'dossier.number' | transloco: { code: code(), n: killNo() }
         }}</span>
       </div>
-      <div class="mtext">{{ mission() }}</div>
+      <div class="mtext"><app-mission-text [mission]="mission()" /></div>
       <div class="target">
         {{ 'dossier.target' | transloco }} <b>{{ targetName() || '—' }}</b>
       </div>

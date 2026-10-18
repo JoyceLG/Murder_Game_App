@@ -1,5 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
+import { isCatalogueKey } from '../missions';
+
 export interface CustomMission {
   id: string;
   text: string;
@@ -16,16 +18,20 @@ const KEY = 'murder.custom-missions';
 export class MissionLibrary {
   readonly missions = signal<CustomMission[]>(this.read());
 
-  add(text: string): void {
+  /** Adds the mission; false when it is blank or shaped like a catalogue key (reserved). */
+  add(text: string): boolean {
     const value = text.trim();
-    if (!value) return;
+    if (!value || isCatalogueKey(value)) return false;
     this.persist([...this.missions(), { id: this.newId(), text: value }]);
+    return true;
   }
 
-  update(id: string, text: string): void {
+  /** Same rules as `add`. */
+  update(id: string, text: string): boolean {
     const value = text.trim();
-    if (!value) return;
+    if (!value || isCatalogueKey(value)) return false;
     this.persist(this.missions().map((m) => (m.id === id ? { ...m, text: value } : m)));
+    return true;
   }
 
   remove(id: string): void {
