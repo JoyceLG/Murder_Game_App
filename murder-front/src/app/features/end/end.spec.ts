@@ -38,6 +38,13 @@ describe('End screen', () => {
     expect(text).toContain('end.finalScore.other');
   });
 
+  it('stamps the headline', () => {
+    const { fixture } = render();
+    expect((fixture.nativeElement as HTMLElement).querySelector('h1')!.classList).toContain(
+      'anim-stamp',
+    );
+  });
+
   it('announces a tie', () => {
     expect(render([player('h', 2), player('b', 2)]).text).toContain('end.tie');
   });

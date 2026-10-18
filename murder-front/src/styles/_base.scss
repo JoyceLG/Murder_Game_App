@@ -299,7 +299,10 @@ input:focus {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * {
+  // pseudo-elements too: the game-moment flashes (styles/_motion.scss) are drawn by ::after
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     transition: none !important;
   }

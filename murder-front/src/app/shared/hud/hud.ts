@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 
+import { Replay, scoreTrend } from '../replay/replay';
+
 @Component({
   selector: 'app-hud',
-  imports: [TranslocoPipe],
+  imports: [TranslocoPipe, Replay],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="hud">
@@ -13,7 +15,9 @@ import { TranslocoPipe } from '@jsverse/transloco';
       </div>
       <div class="stat">
         <div class="lbl">{{ 'hud.score' | transloco }}</div>
-        <div class="val">{{ score() }}</div>
+        <div class="val">
+          <span [appReplay]="score()" [replayClass]="trend">{{ score() }}</span>
+        </div>
       </div>
       <div class="stat">
         <div class="lbl">{{ 'hud.rank' | transloco }}</div>
@@ -26,6 +30,8 @@ export class Hud {
   readonly remaining = input(0);
   readonly score = input(0);
   readonly rank = input(0);
+  /** Score up: bump; score down (a paid mission swap): dip. */
+  protected readonly trend = scoreTrend;
 
   readonly warn = computed(() => this.remaining() <= 60);
   readonly clock = computed(() => {

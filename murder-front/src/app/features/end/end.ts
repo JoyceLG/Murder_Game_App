@@ -25,7 +25,9 @@ export function outrightWinner(ranking: PlayerDto[]): PlayerDto | null {
       <app-id-line [name]="me()?.name ?? ''" [code]="s.code" />
       <div class="card center">
         <span class="eyebrow">{{ 'end.over' | transloco }}</span>
-        <h1 style="margin-top: 8px">{{ headlineKey() | transloco: headlineParams() }}</h1>
+        <h1 class="anim-stamp" style="margin-top: 8px">
+          {{ headlineKey() | transloco: headlineParams() }}
+        </h1>
         @if (winner(); as w) {
           <p class="lead" style="margin-top: 8px">
             {{ 'end.finalScore' | plural: w.score : lang() | transloco: { count: w.score } }}

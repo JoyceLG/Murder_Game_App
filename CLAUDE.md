@@ -126,6 +126,15 @@ WebSocket protocol (`api/websocket.py`): connect to `/games/{code}/live`, send `
   one. After a confirmed kill the attacker swaps targets with another hunter when that keeps the ring
   (see `_retarget_after_kill`); leavers hand their target to their hunter.
 
+### Animations (#15)
+Game-moment animations are plain CSS in `murder-front/src/styles/_motion.scss` (transform/opacity
+only, one-shot). Mount animations are classes on the element that appears (`anim-attacked`,
+`anim-success`, `anim-refused`, `anim-stamp`); change animations use the `shared/replay`
+directive (`[appReplay]="value" replayClass="…"`, never on first render: `anim-deal` on the
+dossier, `anim-bump`/`anim-dip` on the HUD score). The global `prefers-reduced-motion` rule in
+`_base.scss` switches everything off, pseudo-elements included — keep new animations in CSS so it
+applies (e2e `test_motion.py` checks both modes).
+
 ## Mobile-ready guardrails
 
 The long-term goal is native **Android + iOS apps via Capacitor** (the Angular SPA wrapped in a

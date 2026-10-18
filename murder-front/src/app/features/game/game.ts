@@ -29,7 +29,7 @@ type Confirming = 'swap' | 'end' | null;
         />
 
         @if (incoming(); as inc) {
-          <div class="card confirm" role="alert">
+          <div class="card confirm anim-attacked" role="alert">
             <span class="stamp">{{ 'game.attempt' | transloco }}</span>
             <p class="ctext">
               <b>{{ inc.atk_name }}</b> {{ 'game.claimedBy' | transloco }}<br />
@@ -51,7 +51,13 @@ type Confirming = 'swap' | 'end' | null;
         }
 
         @if (myResult(); as result) {
-          <div class="card result" [class.ok]="result === 'ok'" role="status">
+          <div
+            class="card result"
+            [class.ok]="result === 'ok'"
+            [class.anim-success]="result === 'ok'"
+            [class.anim-refused]="result === 'no'"
+            role="status"
+          >
             @if (result === 'ok') {
               <span class="stamp">{{ 'game.resultOk' | transloco }}</span>
               <p class="lead">{{ 'game.resultOkLead' | transloco }}</p>

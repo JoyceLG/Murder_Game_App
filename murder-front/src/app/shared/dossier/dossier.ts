@@ -2,13 +2,15 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { TranslocoPipe } from '@jsverse/transloco';
 
 import { MissionText } from '../mission-text/mission-text';
+import { Replay } from '../replay/replay';
 
 @Component({
   selector: 'app-dossier',
-  imports: [TranslocoPipe, MissionText],
+  imports: [TranslocoPipe, MissionText, Replay],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="dossier">
+    <!-- a new mission or target is dealt: replay the "deal" animation -->
+    <div class="dossier" [appReplay]="mission() + '|' + targetName()" replayClass="anim-deal">
       <div class="drow">
         <span class="stamp">{{ 'dossier.active' | transloco }}</span>
         <span class="eyebrow">{{

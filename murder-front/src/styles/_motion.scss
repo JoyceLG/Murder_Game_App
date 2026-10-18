@@ -1,0 +1,156 @@
+// Game moments (#15). Transform/opacity only, short, one-shot. Every animation here is switched
+// off by the global `prefers-reduced-motion: reduce` rule in _base.scss.
+//
+// Mount animations (the element appears):  .anim-attacked .anim-success .anim-refused .anim-stamp
+// Change animations (Replay directive):    .anim-deal .anim-bump .anim-dip
+
+$spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
+
+// A short colour wash over a card, drawn by its ::after.
+@mixin flash($color) {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: $color;
+    opacity: 0;
+    pointer-events: none;
+    animation: flash 700ms ease-out;
+  }
+}
+
+@keyframes flash {
+  0% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+// --- attacked: the target's confirmation card drops in --------------------------------------
+@keyframes attacked {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.96);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(2px) scale(1.01);
+  }
+  100% {
+    transform: none;
+  }
+}
+.anim-attacked {
+  animation: attacked 460ms $spring both;
+  @include flash(rgba(229, 72, 77, 0.45));
+}
+
+// --- success: confirmed, +1 point -----------------------------------------------------------
+@keyframes success {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    transform: none;
+  }
+}
+.anim-success {
+  animation: success 520ms $spring both;
+  @include flash(rgba(61, 214, 140, 0.4));
+}
+
+// --- refused: a brief shake -----------------------------------------------------------------
+@keyframes refused {
+  0%,
+  100% {
+    transform: none;
+  }
+  15%,
+  55% {
+    transform: translateX(-7px);
+  }
+  35%,
+  75% {
+    transform: translateX(7px);
+  }
+}
+.anim-refused {
+  animation: refused 420ms ease-in-out both;
+  @include flash(rgba(229, 72, 77, 0.35));
+}
+
+// --- new mission dealt: the dossier slides in -----------------------------------------------
+@keyframes deal {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) rotate(-0.6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+.anim-deal {
+  animation: deal 420ms ease-out both;
+}
+
+// --- HUD score ------------------------------------------------------------------------------
+@keyframes bump {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.45);
+    color: var(--ok);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes dip {
+  0% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(5px);
+    color: var(--signal);
+  }
+  100% {
+    transform: none;
+  }
+}
+.anim-bump {
+  display: inline-block;
+  animation: bump 520ms $spring;
+}
+.anim-dip {
+  display: inline-block;
+  animation: dip 420ms ease-out;
+}
+
+// --- end of game: the headline is stamped -----------------------------------------------------
+@keyframes stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.35) rotate(-2deg);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(0.98);
+  }
+  100% {
+    transform: none;
+  }
+}
+.anim-stamp {
+  animation: stamp 520ms $spring both;
+}
