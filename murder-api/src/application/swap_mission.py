@@ -26,7 +26,7 @@ class SwapMission:
         settle_end(game, self.clock)
         if game.status is not GameStatus.RUNNING:
             raise GameNotRunning(code)
-        swap_mission(game, player_id, self.picker)  # raises PlayerNotFound if absent
+        swap_mission(game, player_id, self.picker)  # PlayerNotFound / ClaimAwaitingAck
         await self.repo.save(game)
         await self.notifier.publish(game)
         return game

@@ -84,7 +84,13 @@
     "endConfirm": "Terminer la partie pour tous les agents ?",
     "endYes": "Terminer maintenant",
     "quoteOpen": "« ",
-    "quoteClose": " »"
+    "quoteClose": " »",
+    "resultOk": "Élimination confirmée",
+    "resultOkLead": "Mission accomplie : +1 point.",
+    "nextMission": "Lancer la prochaine mission",
+    "resultNo": "Élimination refusée",
+    "resultNoLead": "Ta cible conteste : pas de point cette fois.",
+    "newMission": "Nouvelle mission"
   },
   "dossier": {
     "active": "Assignation active",

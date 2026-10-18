@@ -282,3 +282,12 @@
   letter-spacing: 0.08em;
   text-align: center;
 }
+
+/* Result of the viewer's own claim, waiting for their acknowledgement (#14). */
+.card.result .lead {
+  margin: 10px 0 14px;
+}
+.card.result.ok .stamp {
+  color: var(--ok);
+  border-color: var(--ok);
+}

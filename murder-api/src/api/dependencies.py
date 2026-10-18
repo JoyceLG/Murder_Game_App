@@ -11,6 +11,7 @@ from fastapi import Depends, Header, HTTPException
 from starlette.requests import HTTPConnection
 
 from src.api.rate_limit import RateLimiter, client_key
+from src.application.acknowledge_resolution import AcknowledgeResolution
 from src.application.add_mission_to_pool import AddMissionToPool
 from src.application.authenticate_player import AuthenticatePlayer
 from src.application.claim_elimination import ClaimElimination
@@ -191,10 +192,18 @@ def claim_uc(
 def confirm_uc(
     repo: GameRepository = Depends(get_repo),
     clock: Clock = Depends(get_clock),
-    picker: Picker = Depends(get_picker),
     notifier: RealtimeNotifier = Depends(get_notifier),
 ) -> ConfirmClaim:
-    return ConfirmClaim(repo=repo, clock=clock, picker=picker, notifier=notifier)
+    return ConfirmClaim(repo=repo, clock=clock, notifier=notifier)
+
+
+def acknowledge_uc(
+    repo: GameRepository = Depends(get_repo),
+    clock: Clock = Depends(get_clock),
+    picker: Picker = Depends(get_picker),
+    notifier: RealtimeNotifier = Depends(get_notifier),
+) -> AcknowledgeResolution:
+    return AcknowledgeResolution(repo=repo, clock=clock, picker=picker, notifier=notifier)
 
 
 def swap_uc(

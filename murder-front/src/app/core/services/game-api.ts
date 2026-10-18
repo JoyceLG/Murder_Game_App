@@ -100,6 +100,15 @@ export class GameApi {
     );
   }
 
+  /** The attacker acknowledges the answer to their claim; the server deals the next mission. */
+  acknowledge(code: string, attackerId: string, auth: PlayerAuth): Observable<GameStateDto> {
+    return this.http.post<GameStateDto>(
+      `${this.base}/games/${code}/claims/${attackerId}/ack`,
+      {},
+      { headers: this.authHeaders(auth) },
+    );
+  }
+
   swap(code: string, auth: PlayerAuth): Observable<GameStateDto> {
     return this.http.post<GameStateDto>(
       `${this.base}/games/${code}/swap-mission`,

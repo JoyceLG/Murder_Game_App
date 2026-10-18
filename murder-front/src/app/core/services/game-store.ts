@@ -74,6 +74,11 @@ export class GameStore {
     return this.state()?.claims.find((c) => c.atk === id) ?? null;
   });
   readonly isPending = computed(() => this.myClaim()?.status === 'pending');
+  /** The target's answer to the viewer's claim, until the viewer acknowledges it. */
+  readonly myResult = computed(() => {
+    const status = this.myClaim()?.status;
+    return status === 'ok' || status === 'no' ? status : null;
+  });
   readonly isHost = computed(() => {
     const s = this.state();
     return !!s && !!s.me && s.host_id === s.me.id;
@@ -142,6 +147,22 @@ export class GameStore {
     const claim = this.incoming();
     if (!claim) return null;
     return this.call((code, auth) => this.api.confirm(code, claim.atk, ok, auth));
+  }
+
+  /** Acknowledge the answer to my claim: the server then deals my next target/mission. */
+  async acknowledge(): Promise<GameStateDto | null> {
+    const claim = this.myClaim();
+    if (!claim || claim.status === 'pending') return null;
+    try {
+      return await this.call((code, auth) => this.api.acknowledge(code, claim.atk, auth));
+    } catch (err) {
+      // 404/409: nothing left to acknowledge (already done, or the game ended meanwhile, which
+      // settles every claim). Not an error for the player: just show the current state.
+      const { status } = apiFailure(err);
+      if (status !== 404 && status !== 409) throw err;
+      await this.refresh();
+      return null;
+    }
   }
 
   swap(): Promise<GameStateDto> {

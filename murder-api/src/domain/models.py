@@ -17,9 +17,12 @@ class GameStatus(StrEnum):
 
 
 class ClaimStatus(StrEnum):
-    """A claim only ever exists while pending: resolving it (confirm or deny) removes it."""
+    """PENDING until the target answers; then OK (confirmed) or NO (denied) until the attacker
+    acknowledges the result, which consumes the claim and deals their next mission."""
 
     PENDING = "pending"
+    OK = "ok"
+    NO = "no"
 
 
 class MissionMode(StrEnum):

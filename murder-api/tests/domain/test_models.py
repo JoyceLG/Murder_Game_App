@@ -13,7 +13,8 @@ def test_enum_values_match_js_strings():
     assert GameStatus.RUNNING.value == "running"
     assert GameStatus.ENDED.value == "ended"
     assert ClaimStatus.PENDING.value == "pending"
-    assert list(ClaimStatus) == [ClaimStatus.PENDING]  # a resolved claim is removed, not kept
+    assert ClaimStatus.OK.value == "ok"
+    assert ClaimStatus.NO.value == "no"
 
 
 def test_is_time_up_false_when_no_end_at():

@@ -1,7 +1,8 @@
 // DTOs mirroring the FastAPI contract (snake_case as sent over the wire).
 
 export type GameStatus = 'lobby' | 'running' | 'ended';
-export type ClaimStatus = 'pending';
+/** pending: waiting for the target · ok/no: answered, waiting for the attacker's ack. */
+export type ClaimStatus = 'pending' | 'ok' | 'no';
 export type MissionMode = 'augment' | 'replace';
 
 export interface PooledMissionDto {

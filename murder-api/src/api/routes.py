@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends
 
 from src.api import schemas
 from src.api.dependencies import (
+    acknowledge_uc,
     add_mission_uc,
     claim_uc,
     confirm_uc,
@@ -31,6 +32,7 @@ from src.api.dependencies import (
     update_config_uc,
 )
 from src.api.mappers import claim_out, to_player_view
+from src.application.acknowledge_resolution import AcknowledgeResolution
 from src.application.add_mission_to_pool import AddMissionToPool
 from src.application.claim_elimination import ClaimElimination
 from src.application.confirm_claim import ConfirmClaim
@@ -168,6 +170,20 @@ async def confirm_claim(
     clock: Clock = Depends(get_clock),
 ) -> schemas.GameOut:
     game = await uc.execute(code, attacker_id, pid, body.confirmed)
+    return to_player_view(game, pid, clock.now_ms())
+
+
+@router.post(
+    "/games/{code}/claims/{attacker_id}/ack", response_model=schemas.GameOut, dependencies=ON_GAME
+)
+async def acknowledge_resolution(
+    code: str,
+    attacker_id: str,
+    pid: str = Depends(player_id),
+    uc: AcknowledgeResolution = Depends(acknowledge_uc),
+    clock: Clock = Depends(get_clock),
+) -> schemas.GameOut:
+    game = await uc.execute(code, attacker_id, pid)
     return to_player_view(game, pid, clock.now_ms())
 
 

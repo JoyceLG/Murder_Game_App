@@ -58,16 +58,21 @@ def test_full_game(api, table):
     )
     assert response.status_code == 401
 
-    # --- the victim confirms: Alice scores, live --------------------------------------------
+    # --- the victim confirms: Alice scores at once, but waits to see it before moving on ----
     response = api.post(
-        f"/games/{code}/claims/{alice.id}/confirm",
-        json={"confirmed": True},
-        headers=victim.headers,
+        f"/games/{code}/claims/{alice.id}/confirm", json={"confirmed": True}, headers=victim.headers
     )
     assert response.status_code == 200
     scored = lives[alice.id].next_state(lambda s: s["me"]["score"] == 1)
-    assert scored["me"]["target_id"] != alice.id
-    assert scored["claims"] == []
+    assert [c["status"] for c in scored["claims"]] == ["ok"]
+    assert scored["me"]["target_id"] == victim.id  # nothing dealt before the ack
+    # only Alice may acknowledge her result
+    response = api.post(f"/games/{code}/claims/{alice.id}/ack", headers=victim.headers)
+    assert response.status_code == 403
+    assert api.post(f"/games/{code}/claims/{alice.id}/ack", headers=alice.headers).is_success
+    moved_on = lives[alice.id].next_state(lambda s: not s["claims"])
+    assert moved_on["me"]["target_id"] not in (alice.id, victim.id)
+    assert moved_on["me"]["mission"] != scored["me"]["mission"]
 
     # --- the host ends it; leaving afterwards keeps everyone in the final ranking ----------
     assert api.post(f"/games/{code}/end", headers=alice.headers).is_success

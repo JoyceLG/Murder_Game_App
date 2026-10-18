@@ -143,3 +143,21 @@ def test_game_deleted_during_the_handshake_closes_4404(client):
             ws.receive_json()
     assert closed.value.code == 4404
     assert client.app.state.notifier.watched_codes() == []
+
+
+def test_attacker_is_pushed_the_result_of_their_claim(client):
+    code, alice = new_game(client, "Alice")
+    bob = join(client, code, "Bob")
+    start(client, code, alice)
+    client.post(f"/games/{code}/claims", headers=alice.headers)
+    with client.websocket_connect(f"/games/{code}/live") as ws:
+        ws.send_json(alice.hello)
+        assert ws.receive_json()["claims"][0]["status"] == "pending"
+        client.post(
+            f"/games/{code}/claims/{alice.id}/confirm",
+            json={"confirmed": True},
+            headers=bob.headers,
+        )
+        pushed = ws.receive_json()
+    assert pushed["claims"][0]["status"] == "ok"
+    assert pushed["me"]["score"] == 1

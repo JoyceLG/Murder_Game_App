@@ -61,6 +61,22 @@ class NotTheClaimTarget(DomainError):
     """Only the claim's target may confirm or deny it (server-side authority check)."""
 
 
+class NotTheClaimAttacker(DomainError):
+    """Only the attacker may acknowledge the result of their own claim."""
+
+
+class ClaimAlreadyResolved(DomainError):
+    """The claim was already confirmed or denied (it now waits for the attacker's ack)."""
+
+
+class ClaimNotResolved(DomainError):
+    """The claim is still waiting for the target's answer; there is nothing to acknowledge."""
+
+
+class ClaimAwaitingAck(DomainError):
+    """The attacker must acknowledge their resolved claim before claiming or swapping again."""
+
+
 class CodeSpaceExhausted(DomainError):
     """No free game code could be allocated (service temporarily unable to create games)."""
 
