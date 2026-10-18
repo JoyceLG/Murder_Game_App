@@ -63,8 +63,9 @@ a Chrome: `make test-front` / `source .venv/bin/activate` set `CHROME_BIN` to Pl
 
 ### End-to-end (`e2e/`, run from the repo root)
 `scripts/e2e.sh [compose|local] [pytest args]` starts a stack and runs `e2e/` against it (API flow
-over REST + WebSocket, nginx checks — skipped without nginx —, two players in Chromium with a French
-UI). Browser tests select by visible French text: keep `fr.json` and `e2e/test_browser.py` in sync.
+over REST + WebSocket, nginx checks — only with `E2E_NGINX=1`, set by compose mode —, two players in
+Chromium with a French UI). Local mode serves the front's production build via `ng serve` with a
+`/games` proxy on free ports, so it runs even while a dev server or compose stack holds 8000/8080. Browser tests select by visible French text: keep `fr.json` and `e2e/test_browser.py` in sync.
 
 ### Full stack
 ```bash
@@ -89,6 +90,8 @@ Everything points inward. Never invert these:
 In legacy-js, the attacker's own browser resolved its kill ("client-side scoring trust"). The rewrite moves authority server-side: only the claim's **target** may confirm/deny, and scoring/reassignment runs on the server. This is `application/confirm_claim.py` (`ConfirmClaim`) calling `domain/rules.mark_resolved`. The regression guard is the test asserting `confirm by non-target → 403`. Preserve this when touching claims.
 
 Claim lifecycle (#14): `pending` → the target answers → `ok` (+1 point immediately, so a score cap can end the game) or `no` → the **attacker** acknowledges (`AcknowledgeResolution`, `POST …/claims/{attacker_id}/ack`, attacker only → 403 otherwise) → `rules.advance_after_resolution` deals the next target (ok) and/or mission and deletes the claim. Until then the attacker cannot claim or swap (`ClaimAwaitingAck`, 409; enforced by `rules.open_claim` / `rules.swap_mission`). Every way a game ends goes through `rules.finish`, which also clears all claims — the automatic ack. If the victim leaves before the ack, the attacker keeps the target `remove_player` handed them (the ack does not move them again).
+
+Other gameplay rules (#20), all in `domain/rules.py`: a claim **on** a player must be answered before they can claim or swap (`has_incoming_claim` → `MustAnswerClaimFirst`, 409); scores never go below 0 — a swap costs 1 point, or is the player's one free swap at 0 points (`Player.free_swap_used`, `rules.swap_cost`, exposed as `me.swap_cost`; `SwapNotAllowed` otherwise); a running game left with one player ends (`remove_player` → `finish`); `max_score` must be ≥ 1.
 
 ### Request → response shape (backend)
 Routes are thin: call a use case, then map the resulting domain `Game` to a DTO via the single mapper `api/mappers.to_player_view` (the anti-corruption boundary — **DTOs are never domain entities**). **A game is never serialized whole**: each caller gets *their* view — public roster/scores/rules for everyone, but `me` (own mission + target) and the claims they make or must answer only for them. Broadcasting everyone's target would give the game away; keep it that way for any new field.

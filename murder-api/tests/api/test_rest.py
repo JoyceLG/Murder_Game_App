@@ -182,6 +182,36 @@ def test_no_new_claim_or_swap_before_acknowledging(client):
         assert response.json()["error"] == "ClaimAwaitingAck"
 
 
+# --- #20 ---------------------------------------------------------------------------------
+
+
+def test_negative_or_zero_score_goal_is_rejected(client):
+    code, alice = new_game(client, "Alice")
+    for goal in (0, -2):
+        response = client.patch(
+            f"/games/{code}/config",
+            json={"max_players": 12, "max_score": goal},
+            headers=alice.headers,
+        )
+        assert response.status_code == 422, goal
+
+
+def test_target_with_a_claim_to_answer_can_neither_claim_nor_swap(client):
+    code, alice, bob = _claimed(client)  # Alice claimed Bob
+    for path in ("claims", "swap-mission"):
+        response = client.post(f"/games/{code}/{path}", headers=bob.headers)
+        assert response.status_code == 409, path
+        assert response.json()["error"] == "MustAnswerClaimFirst"
+
+
+def test_last_player_left_in_a_running_game_ends_it(client):
+    code, alice = new_game(client, "Alice")
+    bob = join(client, code, "Bob")
+    start(client, code, alice)
+    client.request("DELETE", f"/games/{code}/players/me", headers=bob.headers)
+    assert state_for(client, code, alice)["status"] == "ended"
+
+
 # --- B2: the public id is not a credential ---------------------------------------------
 
 
@@ -392,13 +422,17 @@ def test_config_mission_mode_round_trips(client):
     assert response.json()["mission_mode"] == "replace"
 
 
-def test_swap_mission_decrements_score(client):
+def test_swap_mission_is_free_once_at_zero_points_then_refused(client):
     code, alice = new_game(client, "Alice")
     join(client, code, "Bob")
-    start(client, code, alice)
+    assert start(client, code, alice)["me"]["swap_cost"] == 0
     response = client.post(f"/games/{code}/swap-mission", headers=alice.headers)
     assert response.status_code == 200
-    assert response.json()["me"]["score"] == -1
+    assert response.json()["me"]["score"] == 0  # the free swap
+    assert response.json()["me"]["swap_cost"] is None
+    again = client.post(f"/games/{code}/swap-mission", headers=alice.headers)
+    assert again.status_code == 409
+    assert again.json()["error"] == "SwapNotAllowed"
 
 
 def test_every_change_bumps_the_version(client):

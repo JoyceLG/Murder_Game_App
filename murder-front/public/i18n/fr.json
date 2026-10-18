@@ -64,7 +64,8 @@
     "minPlayers": "Au moins 2 agents requis",
     "standby": "En attente",
     "waitingHost": "L'hôte n'a pas encore lancé…",
-    "startError": "Lancement impossible"
+    "startError": "Lancement impossible",
+    "maxScoreInvalid": "L'objectif doit être d'au moins 1 point."
   },
   "game": {
     "attempt": "Tentative d'élimination",
@@ -90,7 +91,12 @@
     "nextMission": "Lancer la prochaine mission",
     "resultNo": "Élimination refusée",
     "resultNoLead": "Ta cible conteste : pas de point cette fois.",
-    "newMission": "Nouvelle mission"
+    "newMission": "Nouvelle mission",
+    "swapFree": "gratuit · 1 seule fois",
+    "swapLocked": "Marque un point pour pouvoir changer de mission.",
+    "swapConfirmFree": "Ce changement est gratuit, mais c'est le seul : ensuite, chaque changement coûtera 1 point.",
+    "swapYesFree": "Changer (gratuit)",
+    "answerFirst": "Réponds d'abord à la tentative d'élimination."
   },
   "dossier": {
     "active": "Assignation active",

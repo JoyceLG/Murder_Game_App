@@ -93,13 +93,15 @@ Ils pilotent une stack **démarrée pour de vrai**, par le réseau, comme le fon
 Deux façons de démarrer la stack ([`scripts/e2e.sh`](scripts/e2e.sh)) :
 
 ```bash
-make e2e-local     # sans Docker : PostgreSQL (pg.sh) + Alembic + uvicorn :8000 + ng serve :4200
+make e2e-local     # sans Docker : PostgreSQL (pg.sh) + Alembic + uvicorn + ng serve (build de prod, proxy /games), ports libres
 make e2e-compose   # comme la CI : docker compose (nginx :8080 + API + PostgreSQL), images rebâties
 make e2e           # compose si Docker répond, sinon local
 ```
 
-En mode `local`, les vérifications nginx (`test_proxy.py`) sont **sautées** : il n'y a pas de
-nginx. Pour les lancer sur WSL, activez Docker Desktop → *Settings → Resources → WSL integration*
+En mode `local`, l'application est le build de **production** servi par `ng serve`, avec un proxy
+`/games` (WebSocket compris) vers l'API : même origine et URLs relatives, comme derrière nginx. Les
+ports sont choisis libres, donc une stack déjà lancée sur 8000/8080 ne gêne pas. Les vérifications
+propres à nginx (`test_proxy.py`) sont **sautées**, faute de nginx. Pour les lancer sur WSL, activez Docker Desktop → *Settings → Resources → WSL integration*
 pour votre distribution, puis lancez `make e2e-compose`.
 
 Options utiles (tout argument est transmis à pytest) :
@@ -116,7 +118,7 @@ En cas d'échec, `e2e/test-results/` contient les captures d'écran, les traces 
 On peut aussi viser une stack déjà lancée :
 
 ```bash
-cd e2e && E2E_APP_URL=http://localhost:8080 ../.venv/bin/python -m pytest
+cd e2e && E2E_APP_URL=http://localhost:8080 E2E_NGINX=1 ../.venv/bin/python -m pytest
 ```
 
 ## 4. En CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))

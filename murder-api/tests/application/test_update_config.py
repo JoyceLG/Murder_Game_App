@@ -60,3 +60,12 @@ async def test_update_config_cap_below_current_players_raises(repo, notifier):
     uc = UpdateGameConfig(repo=repo, notifier=notifier)
     with pytest.raises(InvalidGameConfig):
         await uc.execute("ABCD", "h", max_players=2, max_score=None, mission_mode=AUGMENT)
+
+
+@pytest.mark.parametrize("max_score", [0, -3])
+async def test_update_config_rejects_a_score_goal_below_one(repo, notifier, max_score):
+    await repo.save(make_game(["h", "p2"], code="ABCD", host="h"))
+    uc = UpdateGameConfig(repo=repo, notifier=notifier)
+    with pytest.raises(InvalidGameConfig):
+        await uc.execute("ABCD", "h", max_players=12, max_score=max_score, mission_mode=AUGMENT)
+    assert (await repo.get("ABCD")).max_score is None

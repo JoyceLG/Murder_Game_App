@@ -33,6 +33,8 @@ class UpdateGameConfig:
             raise NotTheHost()
         if game.status is not GameStatus.LOBBY:
             raise GameAlreadyStarted(code)
+        if max_score is not None and max_score < 1:
+            raise InvalidGameConfig()  # a goal of 0 or fewer points would end the game at once
         if max_players < len(game.players):
             # Can't set the cap below the players already in the lobby.
             raise InvalidGameConfig()

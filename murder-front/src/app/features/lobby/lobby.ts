@@ -54,9 +54,11 @@ import { Seal } from '../../shared/seal/seal';
               <input
                 type="number"
                 min="1"
+                step="1"
                 inputmode="numeric"
                 [placeholder]="'lobby.noLimit' | transloco"
                 [(ngModel)]="maxScore"
+                (keydown)="blockSign($event)"
                 (change)="applyConfig()"
               />
             </label>
@@ -212,13 +214,26 @@ export class Lobby {
   async applyConfig(): Promise<void> {
     const players = Math.max(2, Math.min(12, Number(this.maxPlayers) || 12));
     this.maxPlayers = players;
-    const score = this.maxScore && this.maxScore >= 1 ? Math.floor(this.maxScore) : null;
+    const typed =
+      this.maxScore === null || String(this.maxScore) === '' ? null : Number(this.maxScore);
+    if (typed !== null && !(typed >= 1)) {
+      // 0 or fewer points would end the game at once: refuse and keep the current goal.
+      this.toast.show(this.i18n.translate('lobby.maxScoreInvalid'), 'bad');
+      this.maxScore = this.state()?.max_score ?? null;
+      return;
+    }
+    const score = typed === null ? null : Math.floor(typed);
     this.maxScore = score;
     try {
       await this.store.updateConfig(players, score, this.missionMode);
     } catch {
       this.toast.show(this.i18n.translate('lobby.configError'), 'bad');
     }
+  }
+
+  /** Number inputs accept "-", "+" and "e": none of them makes sense for a count. */
+  blockSign(event: KeyboardEvent): void {
+    if (['-', '+', 'e', 'E', '.', ','].includes(event.key)) event.preventDefault();
   }
 
   async addToPool(text = this.draft): Promise<void> {

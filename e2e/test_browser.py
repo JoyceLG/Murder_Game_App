@@ -48,6 +48,10 @@ def test_two_agents_play_a_full_game(browser, browser_context_args, base_url):
     guest.wait_for_url(f"**/g/{code}/play")
     expect(host.locator(".dossier .target b")).to_have_text("Invité")
     expect(guest.locator(".dossier .target b")).to_have_text("Hôte")
+    # at 0 points the only swap on offer is the free one
+    expect(host.get_by_role("button", name=re.compile("Changer de mission"))).to_contain_text(
+        "gratuit"
+    )
     # missions are shown translated, never as a raw catalogue key
     expect(host.locator(".dossier .mtext")).not_to_be_empty()
     expect(host.locator(".dossier .mtext")).not_to_have_text(re.compile(r"core\.\d+|missions\."))
@@ -60,7 +64,10 @@ def test_two_agents_play_a_full_game(browser, browser_context_args, base_url):
     # Host claims the kill, the guest confirms it, the host scores
     host.get_by_role("button", name="J'ai éliminé ma cible").click()
     expect(host.get_by_text("En attente de Invité…")).to_be_visible()
-    expect(guest.get_by_text("Tentative d'élimination")).to_be_visible()
+    expect(guest.get_by_text("Tentative d'élimination", exact=True)).to_be_visible()
+    # the request has priority: the guest can neither claim nor swap before answering
+    expect(guest.get_by_role("button", name="J'ai éliminé ma cible")).to_be_hidden()
+    expect(guest.get_by_text("Réponds d'abord à la tentative d'élimination.")).to_be_visible()
     guest.get_by_role("button", name="Confirmer").click()
     expect(_score(host)).to_have_text("1")
 

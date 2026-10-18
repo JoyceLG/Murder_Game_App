@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from src.api.schemas import ClaimOut, GameOut, MeOut, PlayerOut, PooledMissionOut
 from src.domain.models import Claim, Game, Player, PooledMission
+from src.domain.rules import swap_cost
 
 
 def player_out(player: Player) -> PlayerOut:
@@ -22,6 +23,7 @@ def me_out(player: Player) -> MeOut:
         score=player.score,
         mission=player.mission,
         target_id=player.target_id,
+        swap_cost=swap_cost(player),
     )
 
 
