@@ -30,13 +30,13 @@
 | Phase | Issue | Contenu | Durée estimée |
 |------|-------|---------|---------------|
 | 8 | — | Fondations « mobile-ready » | en cours |
-| 9 | [#10](https://github.com/JoyceLG/Murder_app/issues/10) | i18n — infrastructure multilingue FR/EN | 2-3 j |
-| 10 | [#11](https://github.com/JoyceLG/Murder_app/issues/11) | Config de partie : max points & max joueurs | 1-2 j |
-| 11 | [#12](https://github.com/JoyceLG/Murder_app/issues/12) | Missions : bibliothèque locale + onglet de config | 2-3 j |
-| 12 | [#13](https://github.com/JoyceLG/Murder_app/issues/13) | Missions : pool de partie (tous joueurs) | 2-3 j |
-| 13 | [#14](https://github.com/JoyceLG/Murder_app/issues/14) | i18n — catalogue de missions par défaut | 1 j |
-| 14 | [#15](https://github.com/JoyceLG/Murder_app/issues/15) | Gameplay : accusé de réception attaquant | 1-2 j |
-| 15 | [#16](https://github.com/JoyceLG/Murder_app/issues/16) | UX : animations de jeu | 2-3 j |
+| 9 | [#10](https://github.com/JoyceLG/Murder_Game_App/issues/10) | i18n — infrastructure multilingue FR/EN | 2-3 j |
+| 10 | [#11](https://github.com/JoyceLG/Murder_Game_App/issues/11) | Config de partie : max points & max joueurs | 1-2 j |
+| 11 | [#12](https://github.com/JoyceLG/Murder_Game_App/issues/12) | Missions : bibliothèque locale + onglet de config | 2-3 j |
+| 12 | [#13](https://github.com/JoyceLG/Murder_Game_App/issues/13) | Missions : pool de partie (tous joueurs) | 2-3 j |
+| 13 | [#14](https://github.com/JoyceLG/Murder_Game_App/issues/14) | i18n — catalogue de missions par défaut | 1 j |
+| 14 | [#15](https://github.com/JoyceLG/Murder_Game_App/issues/15) | Gameplay : accusé de réception attaquant | 1-2 j |
+| 15 | [#16](https://github.com/JoyceLG/Murder_Game_App/issues/16) | UX : animations de jeu | 2-3 j |
 
 **Total Bloc 2** : 12–18 jours à temps partiel.
 
@@ -271,7 +271,7 @@ Tâches :
 **But** : poser le minimum qui évite d'accumuler de la dette technique pendant qu'on développe les prochaines features. Tout le reste peut attendre, **pas ça**.
 
 1. **Garde-fous architecturaux documentés** dans [CLAUDE.md](CLAUDE.md) — section « Mobile-ready guardrails ». Chaque nouvelle feature les respecte par construction : URLs jamais en dur (toujours via `environment.apiBase`/`wsBase`), identité via header `X-Player-Id`, pas d'API navigateur sans fallback WebView, responsive + safe-areas, backend 12-factor, notifications derrière un port.
-2. **CORS par allowlist via env var.** Remplacer `allow_origins=["*"]` par une liste lue dans `ALLOWED_ORIGINS` ([murder-api/src/api/config.py](murder-api/src/api/config.py)), incluant à terme les origines WebView (`capacitor://localhost`, `https://localhost`).
+2. ✅ **CORS par allowlist via env var** (fait lors de la revue du 18/10/2026). Remplacer `allow_origins=["*"]` par une liste lue dans `ALLOWED_ORIGINS` ([murder-api/src/api/config.py](murder-api/src/api/config.py)), incluant à terme les origines WebView (`capacitor://localhost`, `https://localhost`).
 3. **Config runtime du front centralisée.** `apiBase`/`wsBase` restent l'unique source des URLs ; interdire tout nouvel usage de `location.host`/`location.origin` hors de `core/services/realtime.ts`.
 
 > Notes : 8.2 et 8.3 sont de petits chantiers à planifier (non bloquants tant que les garde-fous 8.1 sont respectés). L'auth JWT, plus lourde, est repoussée en Phase 17.
