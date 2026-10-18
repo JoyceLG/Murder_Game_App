@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.application._support import get_game_or_404
+from src.application._support import digest_secret, get_game_or_404
 from src.domain.errors import GameAlreadyStarted, TooManyPlayers
 from src.domain.models import Game, GameStatus, Player
 from src.ports.clock import Clock
-from src.ports.identifiers import IdGenerator
+from src.ports.identifiers import IdGenerator, SecretGenerator
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
 
@@ -19,15 +19,23 @@ class JoinGame:
     ids: IdGenerator
     clock: Clock
     notifier: RealtimeNotifier
+    secrets: SecretGenerator
 
-    async def execute(self, code: str, name: str) -> tuple[Game, str]:
+    async def execute(self, code: str, name: str) -> tuple[Game, str, str]:
+        """Return the game, the new player's public id and their session secret."""
         game = await get_game_or_404(self.repo, code)
         if game.status is not GameStatus.LOBBY:
             raise GameAlreadyStarted(code)
         if game.is_full():
             raise TooManyPlayers()
         player_id = self.ids.new_id()
-        game.players[player_id] = Player(id=player_id, name=name, joined_at=self.clock.now_ms())
+        secret = self.secrets.new_secret()
+        game.players[player_id] = Player(
+            id=player_id,
+            name=name,
+            joined_at=self.clock.now_ms(),
+            token_hash=digest_secret(secret),
+        )
         await self.repo.save(game)
         await self.notifier.publish(game)
-        return game, player_id
+        return game, player_id, secret

@@ -3,7 +3,7 @@ import pytest
 from src.adapters.memory_repository import InMemoryGameRepository
 from src.domain.models import Game
 from tests.builders import running_game
-from tests.doubles import FakeClock, FirstPicker, SpyNotifier
+from tests.doubles import CountingSecrets, FakeClock, FirstPicker, SpyNotifier
 
 
 @pytest.fixture
@@ -24,6 +24,11 @@ def picker() -> FirstPicker:
 @pytest.fixture
 def notifier() -> SpyNotifier:
     return SpyNotifier()
+
+
+@pytest.fixture
+def secrets() -> CountingSecrets:
+    return CountingSecrets()
 
 
 def make_running(clock: FakeClock, picker: FirstPicker, player_ids=("h", "p2", "p3")) -> Game:

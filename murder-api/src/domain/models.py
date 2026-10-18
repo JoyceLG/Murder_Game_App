@@ -17,9 +17,9 @@ class GameStatus(StrEnum):
 
 
 class ClaimStatus(StrEnum):
+    """A claim only ever exists while pending: resolving it (confirm or deny) removes it."""
+
     PENDING = "pending"
-    OK = "ok"
-    NO = "no"
 
 
 class MissionMode(StrEnum):
@@ -46,6 +46,9 @@ class Player:
     mission: str = ""
     target_id: str | None = None
     joined_at: int = 0  # unix ms
+    # Digest of the player's session secret. The secret itself is handed out once (create/join)
+    # and never stored; the public `id` alone no longer proves who the caller is.
+    token_hash: str = ""
 
 
 @dataclass
@@ -77,6 +80,10 @@ class Game:
     players: dict[str, Player] = field(default_factory=dict)
     claims: dict[str, Claim] = field(default_factory=dict)
     mission_pool: list[PooledMission] = field(default_factory=list)
+    created_at: int = 0  # unix ms; used to purge stale games
+    # Optimistic-concurrency version, bumped by the repository on every save. A save based on a
+    # stale version is rejected, so two concurrent writers can never silently overwrite each other.
+    version: int = 0
 
     def is_time_up(self, now_ms: int) -> bool:
         """True once the running clock has reached end_at (JS: now() >= endAt)."""

@@ -1,4 +1,7 @@
+import pytest
+
 from src.adapters.memory_repository import InMemoryGameRepository
+from src.domain.errors import ConcurrentUpdate
 from tests.builders import make_game
 
 
@@ -37,3 +40,41 @@ async def test_get_returns_detached_copy():
 async def test_delete_unknown_is_noop():
     repo = InMemoryGameRepository()
     await repo.delete("NONE")  # must not raise
+
+
+async def test_save_bumps_the_version():
+    repo = InMemoryGameRepository()
+    game = make_game(["a"], code="ABCD")
+    await repo.save(game)
+    await repo.save(game)
+    assert game.version == 2
+    assert (await repo.get("ABCD")).version == 2
+
+
+async def test_save_from_a_stale_copy_is_rejected():
+    repo = InMemoryGameRepository()
+    await repo.save(make_game(["a"], code="ABCD"))
+    first, second = await repo.get("ABCD"), await repo.get("ABCD")
+    first.players["a"].score = 1
+    await repo.save(first)
+    second.players["a"].score = 99
+    with pytest.raises(ConcurrentUpdate):
+        await repo.save(second)
+    assert (await repo.get("ABCD")).players["a"].score == 1
+
+
+async def test_saving_a_new_game_over_an_existing_code_is_rejected():
+    repo = InMemoryGameRepository()
+    await repo.save(make_game(["a"], code="ABCD"))
+    with pytest.raises(ConcurrentUpdate):
+        await repo.save(make_game(["b"], code="ABCD"))
+
+
+async def test_delete_created_before():
+    repo = InMemoryGameRepository()
+    old, new = make_game(["a"], code="OLD1"), make_game(["b"], code="NEW1")
+    old.created_at, new.created_at = 100, 200
+    await repo.save(old)
+    await repo.save(new)
+    assert await repo.delete_created_before(150) == ["OLD1"]
+    assert await repo.exists("NEW1") and not await repo.exists("OLD1")

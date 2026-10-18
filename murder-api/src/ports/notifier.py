@@ -14,5 +14,9 @@ from src.domain.models import Game
 @runtime_checkable
 class RealtimeNotifier(Protocol):
     async def publish(self, game: Game) -> None:
-        """Push the full current state to everyone watching `game.code`."""
+        """Push the current state to everyone watching `game.code`, each seeing their own view."""
+        ...
+
+    async def close(self, code: str) -> None:
+        """The game no longer exists: disconnect everyone still watching it."""
         ...

@@ -9,7 +9,7 @@ from src.domain.errors import (
     NotAllowedToRemoveMission,
     PlayerNotFound,
 )
-from src.domain.models import GameStatus
+from src.domain.models import GameStatus, PooledMission
 from tests.builders import make_game
 from tests.doubles import SequenceIds
 
@@ -93,3 +93,12 @@ async def test_remove_unknown_mission_raises(repo, notifier):
     await repo.save(make_game(["h"], code="ABCD", host="h"))
     with pytest.raises(MissionNotFound):
         await RemoveMissionFromPool(repo=repo, notifier=notifier).execute("ABCD", "h", "nope")
+
+
+async def test_remove_mission_after_start_raises(repo, notifier):
+    game = make_game(["h", "p2"], code="ABCD", host="h")
+    game.mission_pool = [PooledMission(id="m1", text="Custom", by="h")]
+    game.status = GameStatus.RUNNING
+    await repo.save(game)
+    with pytest.raises(GameAlreadyStarted):
+        await RemoveMissionFromPool(repo=repo, notifier=notifier).execute("ABCD", "h", "m1")

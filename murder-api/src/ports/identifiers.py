@@ -1,4 +1,4 @@
-"""Driven ports: generation of player ids and game codes, injected for determinism in tests."""
+"""Driven ports: generation of player ids, session secrets and game codes (scripted in tests)."""
 
 from __future__ import annotations
 
@@ -13,3 +13,8 @@ class IdGenerator(Protocol):
 @runtime_checkable
 class CodeGenerator(Protocol):
     def new_code(self) -> str: ...
+
+
+@runtime_checkable
+class SecretGenerator(Protocol):
+    def new_secret(self) -> str: ...

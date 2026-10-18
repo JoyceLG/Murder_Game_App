@@ -1,4 +1,4 @@
-"""Identifier adapters: unguessable player ids and short, human-friendly game codes."""
+"""Identifier adapters: player ids, session secrets and short, human-friendly game codes."""
 
 from __future__ import annotations
 
@@ -11,10 +11,17 @@ CODE_LENGTH = 4
 
 
 class UuidGenerator:
-    """Player id = a full uuid4 hex. Doubles as the (unsigned) identity token; see README."""
+    """Player id = a full uuid4 hex. Public (other players see it); identity is the secret."""
 
     def new_id(self) -> str:
         return uuid4().hex
+
+
+class TokenGenerator:
+    """Session secret: 256 bits of randomness, URL-safe. Proves the caller owns a player id."""
+
+    def new_secret(self) -> str:
+        return secrets.token_urlsafe(32)
 
 
 class RandomCodeGenerator:

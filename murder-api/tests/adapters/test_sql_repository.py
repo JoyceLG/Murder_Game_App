@@ -5,8 +5,6 @@ Postgres (postgresql+asyncpg://...) to exercise the exact same adapter against t
 backend — the whole point of the port abstraction.
 """
 
-import os
-
 import pytest
 import pytest_asyncio
 
@@ -14,21 +12,19 @@ from src.adapters.sql_repository import (
     SqlGameRepository,
     build_engine,
     build_session_factory,
-    create_all,
 )
+from src.domain.errors import ConcurrentUpdate
 from src.domain.models import GameStatus, MissionMode, PooledMission
 from src.ports.repository import GameRepository
 from tests.builders import add_claim, make_game
+from tests.sql_support import empty_database
 
 pytestmark = pytest.mark.integration
-
-TEST_DATABASE_URL = os.environ.get("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 
 
 @pytest_asyncio.fixture
 async def repo():
-    engine = build_engine(TEST_DATABASE_URL)
-    await create_all(engine)
+    engine = await empty_database()
     try:
         yield SqlGameRepository(build_session_factory(engine))
     finally:
@@ -144,3 +140,61 @@ async def test_build_engine_for_postgres_url_uses_postgres_dialect():
     engine = build_engine("postgresql+asyncpg://u:p@localhost:5432/murder")
     assert engine.dialect.name == "postgresql"
     await engine.dispose()
+
+
+async def test_version_created_at_and_token_digest_round_trip(repo):
+    game = make_game(["a", "b"], code="WXYZ")
+    game.created_at = 1234
+    game.players["a"].token_hash = "f" * 64
+    await repo.save(game)
+    assert game.version == 1
+    loaded = await repo.get("WXYZ")
+    assert loaded.version == 1
+    assert loaded.created_at == 1234
+    assert loaded.players["a"].token_hash == "f" * 64
+
+
+async def test_save_from_a_stale_copy_is_rejected(repo):
+    await repo.save(make_game(["a", "b"], code="WXYZ"))
+    first, second = await repo.get("WXYZ"), await repo.get("WXYZ")
+    first.players["a"].score = 1
+    await repo.save(first)
+
+    second.players.pop("b")  # would have wiped b if the stale write went through
+    with pytest.raises(ConcurrentUpdate):
+        await repo.save(second)
+
+    loaded = await repo.get("WXYZ")
+    assert loaded.players["a"].score == 1
+    assert set(loaded.players) == {"a", "b"}
+    assert loaded.version == 2
+
+
+async def test_saving_a_new_game_over_an_existing_code_is_rejected(repo):
+    await repo.save(make_game(["a"], code="WXYZ"))
+    with pytest.raises(ConcurrentUpdate):
+        await repo.save(make_game(["b"], code="WXYZ"))
+    assert set((await repo.get("WXYZ")).players) == {"a"}
+
+
+async def test_saving_a_deleted_game_is_rejected(repo):
+    await repo.save(make_game(["a"], code="WXYZ"))
+    stale = await repo.get("WXYZ")
+    await repo.delete("WXYZ")
+    with pytest.raises(ConcurrentUpdate):
+        await repo.save(stale)
+
+
+async def test_delete_created_before(repo):
+    old, new = make_game(["a"], code="OLD1"), make_game(["b"], code="NEW1")
+    old.created_at, new.created_at = 100, 200
+    old.players["a"].target_id = "a"
+    add_claim(old, "a")
+    old.mission_pool = [PooledMission(id="m1", text="x", by="a")]
+    await repo.save(old)
+    await repo.save(new)
+
+    assert await repo.delete_created_before(150) == ["OLD1"]
+    assert await repo.get("OLD1") is None
+    assert await repo.get("NEW1") is not None
+    assert await repo.delete_created_before(150) == []

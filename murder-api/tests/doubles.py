@@ -54,6 +54,17 @@ class SequenceIds:
         return value
 
 
+class CountingSecrets:
+    """SecretGenerator returning predictable secrets: secret-1, secret-2, ..."""
+
+    def __init__(self) -> None:
+        self._n = 0
+
+    def new_secret(self) -> str:
+        self._n += 1
+        return f"secret-{self._n}"
+
+
 class FixedCodes:
     """CodeGenerator returning scripted codes in order (to drive collision-retry tests)."""
 
@@ -68,10 +79,14 @@ class FixedCodes:
 
 
 class SpyNotifier:
-    """RealtimeNotifier that records every published game, to assert use cases broadcast."""
+    """RealtimeNotifier that records every published game / closed code, to assert broadcasts."""
 
     def __init__(self) -> None:
         self.published: list[Game] = []
+        self.closed: list[str] = []
 
     async def publish(self, game: Game) -> None:
         self.published.append(game)
+
+    async def close(self, code: str) -> None:
+        self.closed.append(code)

@@ -39,9 +39,16 @@ class ConfirmClaimIn(BaseModel):
 
 
 class PlayerOut(BaseModel):
+    """What every player may know about any player."""
+
     id: str
     name: str
     score: int
+
+
+class MeOut(PlayerOut):
+    """The viewer's own secrets: their mission and who they hunt. Never sent to anyone else."""
+
     mission: str
     target_id: str | None
 
@@ -61,6 +68,8 @@ class PooledMissionOut(BaseModel):
 
 
 class GameOut(BaseModel):
+    """One player's view of a game (see mappers.to_player_view)."""
+
     code: str
     host_id: str
     status: str
@@ -68,18 +77,23 @@ class GameOut(BaseModel):
     start_at: int
     end_at: int
     remaining_sec: int
+    server_now: int  # server clock (unix ms) when this view was built: lets clients fix skew
+    version: int  # increases with every change; clients keep the newest state they have seen
     max_players: int
     max_score: int | None
     mission_mode: str
     players: list[PlayerOut]
-    claims: list[ClaimOut]
+    me: MeOut | None  # None for an anonymous viewer
+    claims: list[ClaimOut]  # only the claims the viewer makes or must answer
     mission_pool: list[PooledMissionOut]
     ranking: list[PlayerOut]
 
 
 class CreatedGameOut(GameOut):
     player_id: str
+    player_token: str  # the session secret: returned once, sent back in X-Player-Token
 
 
 class JoinedGameOut(GameOut):
     player_id: str
+    player_token: str

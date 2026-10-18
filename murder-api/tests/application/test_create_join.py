@@ -1,8 +1,14 @@
 import pytest
 
+from src.application._support import digest_secret
 from src.application.create_game import CreateGame
 from src.application.join_game import JoinGame
-from src.domain.errors import DomainError, GameAlreadyStarted, GameNotFound, TooManyPlayers
+from src.domain.errors import (
+    CodeSpaceExhausted,
+    GameAlreadyStarted,
+    GameNotFound,
+    TooManyPlayers,
+)
 from src.domain.models import GameStatus
 from tests.builders import make_game
 from tests.doubles import FixedCodes, SequenceIds
@@ -10,9 +16,14 @@ from tests.doubles import FixedCodes, SequenceIds
 # --- CreateGame ------------------------------------------------------------------------
 
 
-async def test_create_game_persists_lobby_with_host_as_first_player(repo, clock):
-    uc = CreateGame(repo=repo, ids=SequenceIds("host-1"), codes=FixedCodes("ABCD"), clock=clock)
-    game, player_id = await uc.execute("Alice")
+def _create(repo, clock, secrets, *codes: str, host_id: str = "host-1") -> CreateGame:
+    return CreateGame(
+        repo=repo, ids=SequenceIds(host_id), codes=FixedCodes(*codes), clock=clock, secrets=secrets
+    )
+
+
+async def test_create_game_persists_lobby_with_host_as_first_player(repo, clock, secrets):
+    game, player_id, _ = await _create(repo, clock, secrets, "ABCD").execute("Alice")
 
     assert player_id == "host-1"
     assert game.code == "ABCD"
@@ -20,60 +31,71 @@ async def test_create_game_persists_lobby_with_host_as_first_player(repo, clock)
     assert game.host_id == "host-1"
     assert game.players["host-1"].name == "Alice"
     assert game.players["host-1"].joined_at == clock.now_ms()
+    assert game.created_at == clock.now_ms()
 
     stored = await repo.get("ABCD")
     assert stored is not None
     assert "host-1" in stored.players
 
 
-async def test_create_game_retries_on_code_collision(repo, clock):
+async def test_create_game_hands_out_a_secret_and_stores_only_its_digest(repo, clock, secrets):
+    game, _, secret = await _create(repo, clock, secrets, "ABCD").execute("Alice")
+
+    assert secret == "secret-1"
+    stored = (await repo.get("ABCD")).players["host-1"]
+    assert stored.token_hash == digest_secret(secret)
+    assert secret not in stored.token_hash
+
+
+async def test_create_game_retries_on_code_collision(repo, clock, secrets):
     await repo.save(make_game(["x"], code="TAKEN"))
-    uc = CreateGame(repo=repo, ids=SequenceIds("h"), codes=FixedCodes("TAKEN", "FREE"), clock=clock)
-    game, _ = await uc.execute("Alice")
+    game, _, _ = await _create(repo, clock, secrets, "TAKEN", "FREE").execute("Alice")
     assert game.code == "FREE"
 
 
-async def test_create_game_raises_when_no_free_code(repo, clock):
+async def test_create_game_raises_when_no_free_code(repo, clock, secrets):
     await repo.save(make_game(["x"], code="DUP"))
-    uc = CreateGame(repo=repo, ids=SequenceIds("h"), codes=FixedCodes(*(["DUP"] * 10)), clock=clock)
-    with pytest.raises(DomainError):
-        await uc.execute("Alice")
+    with pytest.raises(CodeSpaceExhausted):
+        await _create(repo, clock, secrets, *(["DUP"] * 10)).execute("Alice")
 
 
 # --- JoinGame --------------------------------------------------------------------------
 
 
-async def test_join_game_adds_player_and_publishes(repo, clock, notifier):
-    await repo.save(make_game(["host"], code="ABCD", host="host"))
-    uc = JoinGame(repo=repo, ids=SequenceIds("p2"), clock=clock, notifier=notifier)
+def _join(repo, clock, notifier, secrets, player_id: str = "p2") -> JoinGame:
+    return JoinGame(
+        repo=repo, ids=SequenceIds(player_id), clock=clock, notifier=notifier, secrets=secrets
+    )
 
-    game, player_id = await uc.execute("ABCD", "Bob")
+
+async def test_join_game_adds_player_and_publishes(repo, clock, notifier, secrets):
+    await repo.save(make_game(["host"], code="ABCD", host="host"))
+
+    game, player_id, secret = await _join(repo, clock, notifier, secrets).execute("ABCD", "Bob")
 
     assert player_id == "p2"
     assert game.players["p2"].name == "Bob"
+    assert game.players["p2"].token_hash == digest_secret(secret)
     assert len(notifier.published) == 1
     assert "p2" in (await repo.get("ABCD")).players
 
 
-async def test_join_unknown_code_raises_game_not_found(repo, clock, notifier):
-    uc = JoinGame(repo=repo, ids=SequenceIds("p2"), clock=clock, notifier=notifier)
+async def test_join_unknown_code_raises_game_not_found(repo, clock, notifier, secrets):
     with pytest.raises(GameNotFound):
-        await uc.execute("NOPE", "Bob")
+        await _join(repo, clock, notifier, secrets).execute("NOPE", "Bob")
 
 
-async def test_join_after_start_raises_already_started(repo, clock, notifier):
+async def test_join_after_start_raises_already_started(repo, clock, notifier, secrets):
     game = make_game(["host"], code="ABCD", host="host")
     game.status = GameStatus.RUNNING
     await repo.save(game)
-    uc = JoinGame(repo=repo, ids=SequenceIds("p2"), clock=clock, notifier=notifier)
     with pytest.raises(GameAlreadyStarted):
-        await uc.execute("ABCD", "Bob")
+        await _join(repo, clock, notifier, secrets).execute("ABCD", "Bob")
 
 
-async def test_join_when_lobby_full_raises_too_many_players(repo, clock, notifier):
+async def test_join_when_lobby_full_raises_too_many_players(repo, clock, notifier, secrets):
     game = make_game(["h", "p2"], code="ABCD", host="h")
     game.max_players = 2
     await repo.save(game)
-    uc = JoinGame(repo=repo, ids=SequenceIds("p3"), clock=clock, notifier=notifier)
     with pytest.raises(TooManyPlayers):
-        await uc.execute("ABCD", "Carol")
+        await _join(repo, clock, notifier, secrets, "p3").execute("ABCD", "Carol")

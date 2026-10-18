@@ -1,6 +1,8 @@
-"""Shared helpers for use cases: aggregate loading and lazy end-of-game settlement."""
+"""Shared helpers for use cases: aggregate loading, lazy end-of-game settlement, secret digests."""
 
 from __future__ import annotations
+
+import hashlib
 
 from src.domain.errors import GameNotFound
 from src.domain.models import Game, GameStatus
@@ -28,3 +30,8 @@ def settle_end(game: Game, clock: Clock) -> bool:
         game.status = GameStatus.ENDED
         return True
     return False
+
+
+def digest_secret(secret: str) -> str:
+    """One-way digest of a session secret; only this is stored, never the secret itself."""
+    return hashlib.sha256(secret.encode()).hexdigest()

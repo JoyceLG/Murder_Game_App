@@ -1,15 +1,25 @@
+import random
+from collections import Counter
+
 import pytest
 
 from src.domain.errors import PlayerNotFound
 from src.domain.missions import MISSIONS
+from src.domain.randomness import RandomPicker
 from src.domain.rules import (
     assign_targets,
     clamp_duration_min,
+    reassign_targets_away_from,
     resolve_claim,
     swap_mission,
 )
 from tests.builders import add_claim, make_game, running_game
 from tests.doubles import FirstPicker, SequencePicker
+
+
+def _hunt_counts(game):
+    return Counter(p.target_id for p in game.players.values())
+
 
 # --- assign_targets --------------------------------------------------------------------
 
@@ -38,15 +48,32 @@ def test_assign_targets_two_players_target_each_other():
 
 def test_assign_targets_is_deterministic_with_injected_picker():
     game = make_game(["alice", "bob", "carol"])
-    # scripted as (target, mission) per player, in insertion order
-    picker = SequencePicker("bob", MISSIONS[0], "carol", MISSIONS[1], "alice", MISSIONS[2])
+    # scripted as the shuffled ring order (one pick per remaining player), then the missions
+    picker = SequencePicker("carol", "alice", "bob", MISSIONS[0], MISSIONS[1], MISSIONS[2])
     assign_targets(game, picker)
-    assert (game.players["alice"].target_id, game.players["alice"].mission) == ("bob", MISSIONS[0])
-    assert (game.players["bob"].target_id, game.players["bob"].mission) == ("carol", MISSIONS[1])
+    # ring carol -> alice -> bob -> carol
     assert (game.players["carol"].target_id, game.players["carol"].mission) == (
         "alice",
-        MISSIONS[2],
+        MISSIONS[0],
     )
+    assert (game.players["alice"].target_id, game.players["alice"].mission) == ("bob", MISSIONS[1])
+    assert (game.players["bob"].target_id, game.players["bob"].mission) == ("carol", MISSIONS[2])
+
+
+@pytest.mark.parametrize("seed", range(20))
+def test_assign_targets_forms_a_single_cycle_everyone_hunted_exactly_once(seed):
+    game = make_game([f"p{i}" for i in range(7)])
+    assign_targets(game, RandomPicker(random.Random(seed)))
+
+    hunted = Counter(p.target_id for p in game.players.values())
+    assert set(hunted) == set(game.players)
+    assert set(hunted.values()) == {1}
+    # following targets from anyone visits all players before coming back: one ring, no sub-loops
+    seen, current = [], "p0"
+    while current not in seen:
+        seen.append(current)
+        current = game.players[current].target_id
+    assert len(seen) == len(game.players)
 
 
 # --- resolve_claim (confirmed) ---------------------------------------------------------
@@ -89,6 +116,93 @@ def test_resolve_claim_confirmed_falls_back_when_only_current_target_remains():
 
 
 # --- resolve_claim (refused) -----------------------------------------------------------
+
+
+def test_confirmed_kill_swaps_targets_so_everyone_stays_hunted_exactly_once():
+    # ring a -> b -> c -> d -> a; a scores on b
+    game = running_game(["a", "b", "c", "d"], FirstPicker())
+    add_claim(game, "a")
+
+    resolve_claim(game, "a", confirmed=True, picker=FirstPicker())
+
+    # the only valid partner is c: a takes c's target (d), c takes the victim (b)
+    assert game.players["a"].target_id == "d"
+    assert game.players["c"].target_id == "b"
+    assert set(_hunt_counts(game).values()) == {1}
+    assert all(p.target_id != p.id for p in game.players.values())
+
+
+def test_confirmed_kill_never_swaps_with_a_hunter_who_has_a_pending_claim():
+    game = running_game(["a", "b", "c", "d"], FirstPicker())  # a -> b -> c -> d -> a
+    add_claim(game, "a")
+    add_claim(game, "c")  # c is waiting for d to confirm: c's target must not change
+
+    resolve_claim(game, "a", confirmed=True, picker=FirstPicker())
+
+    assert game.players["c"].target_id == "d"
+    assert game.players["a"].target_id != "b"
+
+
+def test_confirmed_kill_with_three_players_falls_back_to_the_other_player():
+    # a -> b -> c -> a: no swap keeps the ring valid, so a simply moves on to c
+    game = running_game(["a", "b", "c"], FirstPicker())
+    add_claim(game, "a")
+    resolve_claim(game, "a", confirmed=True, picker=FirstPicker())
+    assert game.players["a"].target_id == "c"
+
+
+def test_fallback_prefers_the_least_hunted_player():
+    game = make_game(["a", "b", "c", "d"])
+    # not a ring (e.g. after departures): c is hunted by b and d, nobody hunts a's other options
+    game.players["a"].target_id = "b"
+    game.players["b"].target_id = "c"
+    game.players["c"].target_id = "a"
+    game.players["d"].target_id = "c"
+    game.claims.clear()
+    add_claim(game, "a")
+    add_claim(game, "c")
+    add_claim(game, "d")  # every potential partner is busy -> fallback
+
+    resolve_claim(game, "a", confirmed=True, picker=FirstPicker())
+
+    assert game.players["a"].target_id == "d"  # hunted by nobody, unlike c (hunted twice)
+
+
+def test_confirmed_kill_when_the_attacker_is_alone_keeps_things_unchanged():
+    game = running_game(["a", "b"], FirstPicker())
+    add_claim(game, "a")
+    game.players.pop("b")
+    resolve_claim(game, "a", confirmed=True, picker=FirstPicker())
+    assert game.players["a"].score == 1
+
+
+# --- reassign_targets_away_from --------------------------------------------------------
+
+
+def test_leaver_hunter_inherits_the_leavers_target():
+    game = running_game(["a", "b", "c", "d"], FirstPicker())  # a -> b -> c -> d -> a
+    leaver = game.players.pop("b")
+    reassign_targets_away_from(game, "b", FirstPicker(), leaver.target_id)
+    assert game.players["a"].target_id == "c"
+    assert set(_hunt_counts(game).values()) == {1}
+
+
+def test_leaver_hunter_never_inherits_themselves():
+    game = running_game(["a", "b", "c"], FirstPicker())  # a -> b -> c -> a
+    game.players["c"].target_id = "b"  # b <-> c and a -> b
+    game.players["b"].target_id = "c"
+    leaver = game.players.pop("b")
+    reassign_targets_away_from(game, "b", FirstPicker(), leaver.target_id)
+    # a inherits c; c (who hunted b) cannot inherit itself -> least hunted other player (a)
+    assert game.players["a"].target_id == "c"
+    assert game.players["c"].target_id == "a"
+
+
+def test_last_remaining_player_has_no_target():
+    game = running_game(["a", "b"], FirstPicker())
+    leaver = game.players.pop("b")
+    reassign_targets_away_from(game, "b", FirstPicker(), leaver.target_id)
+    assert game.players["a"].target_id is None
 
 
 def test_resolve_claim_refused_changes_mission_only_keeps_target_and_score():

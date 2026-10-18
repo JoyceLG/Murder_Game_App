@@ -5,11 +5,19 @@ exact same adapter on SQLite via aiosqlite. Same port, different driver — the 
 
 The Game aggregate is persisted as a whole: on save we upsert the game row and replace its child
 players/claims, so the stored state always mirrors the in-memory aggregate.
+
+Concurrency: the game row carries a `version`. A save first runs
+`UPDATE games ... WHERE code = :code AND version = :loaded_version` (or an INSERT for a new game)
+and only then touches the children, in the same transaction. Two writers that loaded the same
+version cannot both pass that guard: on PostgreSQL the second UPDATE waits on the first's row lock,
+re-checks the WHERE against the committed row and matches nothing. The loser gets
+ConcurrentUpdate (HTTP 409) instead of an IntegrityError or a silently lost update.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import BigInteger, ForeignKey, Integer, String, delete, select
+from sqlalchemy import BigInteger, ForeignKey, Integer, String, delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -19,6 +27,7 @@ from sqlalchemy.ext.asyncio import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import StaticPool
 
+from src.domain.errors import ConcurrentUpdate
 from src.domain.models import (
     DEFAULT_MAX_PLAYERS,
     Claim,
@@ -47,6 +56,8 @@ class GameRow(Base):
     max_players: Mapped[int] = mapped_column(Integer, default=DEFAULT_MAX_PLAYERS)
     max_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     mission_mode: Mapped[str] = mapped_column(String(16), default=str(MissionMode.AUGMENT))
+    created_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    version: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class PlayerRow(Base):
@@ -61,6 +72,7 @@ class PlayerRow(Base):
     mission: Mapped[str] = mapped_column(String(255), default="")
     target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     joined_at: Mapped[int] = mapped_column(BigInteger, default=0)
+    token_hash: Mapped[str] = mapped_column(String(64), default="")
 
 
 class ClaimRow(Base):
@@ -105,6 +117,8 @@ def _to_domain(
         max_players=game_row.max_players,
         max_score=game_row.max_score,
         mission_mode=MissionMode(game_row.mission_mode),
+        created_at=game_row.created_at,
+        version=game_row.version,
     )
     for row in mission_rows:
         game.mission_pool.append(PooledMission(id=row.id, text=row.text, by=row.added_by))
@@ -116,6 +130,7 @@ def _to_domain(
             mission=row.mission,
             target_id=row.target_id,
             joined_at=row.joined_at,
+            token_hash=row.token_hash,
         )
     for row in claim_rows:
         game.claims[row.atk] = Claim(
@@ -176,20 +191,33 @@ class SqlGameRepository:
             return _to_domain(game_row, list(players), list(claims), list(missions))
 
     async def save(self, game: Game) -> None:
+        values = {
+            "host_id": game.host_id,
+            "status": str(game.status),
+            "duration_sec": game.duration_sec,
+            "start_at": game.start_at,
+            "end_at": game.end_at,
+            "max_players": game.max_players,
+            "max_score": game.max_score,
+            "mission_mode": str(game.mission_mode),
+            "created_at": game.created_at,
+            "version": game.version + 1,
+        }
         async with self._session_factory() as session, session.begin():
-            game_row = await session.get(GameRow, game.code)
-            if game_row is None:
-                game_row = GameRow(code=game.code)
-                session.add(game_row)
-            game_row.host_id = game.host_id
-            game_row.status = str(game.status)
-            game_row.duration_sec = game.duration_sec
-            game_row.start_at = game.start_at
-            game_row.end_at = game.end_at
-            game_row.max_players = game.max_players
-            game_row.max_score = game.max_score
-            game_row.mission_mode = str(game.mission_mode)
-            await session.flush()
+            if game.version == 0:
+                session.add(GameRow(code=game.code, **values))
+                try:
+                    await session.flush()
+                except IntegrityError as exc:  # the code was taken meanwhile
+                    raise ConcurrentUpdate(game.code) from exc
+            else:
+                result = await session.execute(
+                    update(GameRow)
+                    .where(GameRow.code == game.code, GameRow.version == game.version)
+                    .values(**values)
+                )
+                if result.rowcount != 1:
+                    raise ConcurrentUpdate(game.code)
 
             # Replace the aggregate's children wholesale.
             await session.execute(delete(PlayerRow).where(PlayerRow.game_code == game.code))
@@ -209,6 +237,7 @@ class SqlGameRepository:
                         mission=player.mission,
                         target_id=player.target_id,
                         joined_at=player.joined_at,
+                        token_hash=player.token_hash,
                     )
                 )
             for claim in game.claims.values():
@@ -233,6 +262,7 @@ class SqlGameRepository:
                         added_by=mission.by,
                     )
                 )
+        game.version += 1
 
     async def delete(self, code: str) -> None:
         async with self._session_factory() as session, session.begin():
@@ -245,6 +275,23 @@ class SqlGameRepository:
         async with self._session_factory() as session:
             result = await session.execute(select(GameRow.code).where(GameRow.code == code))
             return result.first() is not None
+
+    async def delete_created_before(self, cutoff_ms: int) -> list[str]:
+        async with self._session_factory() as session, session.begin():
+            stale = list(
+                (await session.execute(select(GameRow.code).where(GameRow.created_at < cutoff_ms)))
+                .scalars()
+                .all()
+            )
+            if stale:
+                for table, column in (
+                    (ClaimRow, ClaimRow.game_code),
+                    (PlayerRow, PlayerRow.game_code),
+                    (MissionPoolRow, MissionPoolRow.game_code),
+                    (GameRow, GameRow.code),
+                ):
+                    await session.execute(delete(table).where(column.in_(stale)))
+            return stale
 
 
 def build_engine(database_url: str) -> AsyncEngine:
