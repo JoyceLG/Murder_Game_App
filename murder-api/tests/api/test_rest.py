@@ -1,3 +1,5 @@
+import re
+
 from tests.api.conftest import Agent, join, new_game, start, state_for
 
 
@@ -270,6 +272,34 @@ def test_add_mission_rejects_blank(client):
     code, alice = new_game(client, "Alice")
     response = client.post(f"/games/{code}/missions", json={"text": ""}, headers=alice.headers)
     assert response.status_code == 422
+
+
+def test_add_mission_rejects_catalogue_key(client):
+    code, alice = new_game(client, "Alice")
+    response = client.post(
+        f"/games/{code}/missions", json={"text": "core.03"}, headers=alice.headers
+    )
+    assert response.status_code == 422
+    assert response.json()["error"] == "InvalidMission"
+
+
+def test_started_game_deals_catalogue_keys(client):
+    code, alice = new_game(client, "Alice")
+    join(client, code, "Bob")
+    view = start(client, code, alice)
+    assert re.fullmatch(r"core\.\d{2}", view["me"]["mission"])
+
+
+def test_custom_pool_in_replace_mode_deals_literal_text(client):
+    code, alice = new_game(client, "Alice")
+    join(client, code, "Bob")
+    client.post(f"/games/{code}/missions", json={"text": "Chante en canon"}, headers=alice.headers)
+    client.patch(
+        f"/games/{code}/config",
+        json={"max_players": 12, "mission_mode": "replace"},
+        headers=alice.headers,
+    )
+    assert start(client, code, alice)["me"]["mission"] == "Chante en canon"
 
 
 def test_config_mission_mode_round_trips(client):

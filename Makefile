@@ -16,8 +16,10 @@ help: ## list the targets
 setup: ## create/refresh .venv (Python, Node, PostgreSQL, Chromium) + npm ci
 	scripts/setup-dev.sh
 
-lint: ## ruff check + format check (API), as in CI
+lint: ## ruff check + format check (API, e2e/ and scripts/), as in CI
 	cd murder-api && $(BIN)/ruff check . && $(BIN)/ruff format --check .
+	$(BIN)/ruff check --config murder-api/pyproject.toml e2e scripts
+	$(BIN)/ruff format --check --config murder-api/pyproject.toml e2e scripts
 
 test: test-api test-front ## fast suites: API on SQLite + Angular unit tests
 

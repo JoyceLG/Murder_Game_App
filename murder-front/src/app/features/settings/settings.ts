@@ -1,10 +1,12 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { TranslocoPipe } from '@jsverse/transloco';
+import { TranslocoPipe, TranslocoService } from '@jsverse/transloco';
 
 import { Lang, Language } from '../../core/services/language';
+import { isCatalogueKey } from '../../core/missions';
 import { MissionLibrary } from '../../core/services/mission-library';
+import { Toast } from '../../core/services/toast';
 
 @Component({
   selector: 'app-settings',
@@ -57,7 +59,7 @@ import { MissionLibrary } from '../../core/services/mission-library';
                 [attr.aria-label]="'settings.missionLabel' | transloco"
                 #ed
               />
-              <button class="btn ghost small" (click)="lib.update(m.id, ed.value)">
+              <button class="btn ghost small" (click)="save(m.id, ed.value)">
                 {{ 'settings.save' | transloco }}
               </button>
               <button class="btn ghost small" (click)="lib.remove(m.id)">
@@ -76,6 +78,8 @@ export class Settings {
   protected readonly lang = inject(Language);
   protected readonly lib = inject(MissionLibrary);
   private router = inject(Router);
+  private toast = inject(Toast);
+  private i18n = inject(TranslocoService);
 
   draft = '';
 
@@ -84,8 +88,21 @@ export class Settings {
   }
 
   add(): void {
+    if (this.refuseReserved(this.draft)) return;
     this.lib.add(this.draft);
     this.draft = '';
+  }
+
+  save(id: string, text: string): void {
+    if (this.refuseReserved(text)) return;
+    this.lib.update(id, text);
+  }
+
+  /** Custom missions may not look like catalogue keys (`core.NN`), which clients translate. */
+  private refuseReserved(text: string): boolean {
+    if (!isCatalogueKey(text)) return false;
+    this.toast.show(this.i18n.translate('common.missionReserved'), 'bad');
+    return true;
   }
 
   back(): void {

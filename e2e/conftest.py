@@ -45,7 +45,10 @@ def stack_is_up() -> None:
         except httpx.HTTPError:
             pass
         if time.monotonic() > deadline:
-            pytest.exit(f"stack not reachable at {API_URL}/health — is it running?", returncode=2)
+            pytest.exit(
+                f"stack not reachable at {API_URL}/health — is it running?",
+                returncode=2,
+            )
         time.sleep(1)
 
 
@@ -58,7 +61,11 @@ def base_url() -> str:
 @pytest.fixture(scope="session")
 def browser_context_args(browser_context_args):
     # French UI (the app picks the device language), phone-sized viewport like real players.
-    return {**browser_context_args, "locale": "fr-FR", "viewport": {"width": 390, "height": 844}}
+    return {
+        **browser_context_args,
+        "locale": "fr-FR",
+        "viewport": {"width": 390, "height": 844},
+    }
 
 
 @pytest.fixture

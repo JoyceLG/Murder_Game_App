@@ -98,7 +98,8 @@ describe('Game screen', () => {
       }),
     );
     expect(text()).toContain('game.attempt');
-    expect(text()).toContain('game.quotedMission');
+    expect(text()).toContain('game.quoteOpen');
+    expect(text()).toContain('x');
   });
 
   it('explains when the viewer is no longer part of the game', () => {

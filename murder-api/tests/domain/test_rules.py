@@ -4,7 +4,7 @@ from collections import Counter
 import pytest
 
 from src.domain.errors import PlayerNotFound
-from src.domain.missions import MISSIONS
+from src.domain.missions import MISSION_KEYS
 from src.domain.randomness import RandomPicker
 from src.domain.rules import (
     assign_targets,
@@ -36,7 +36,7 @@ def test_assign_targets_assigns_a_mission_from_catalogue_to_everyone():
     game = make_game(["alice", "bob", "carol"])
     assign_targets(game, FirstPicker())
     for player in game.players.values():
-        assert player.mission in MISSIONS
+        assert player.mission in MISSION_KEYS
 
 
 def test_assign_targets_two_players_target_each_other():
@@ -49,15 +49,23 @@ def test_assign_targets_two_players_target_each_other():
 def test_assign_targets_is_deterministic_with_injected_picker():
     game = make_game(["alice", "bob", "carol"])
     # scripted as the shuffled ring order (one pick per remaining player), then the missions
-    picker = SequencePicker("carol", "alice", "bob", MISSIONS[0], MISSIONS[1], MISSIONS[2])
+    picker = SequencePicker(
+        "carol", "alice", "bob", MISSION_KEYS[0], MISSION_KEYS[1], MISSION_KEYS[2]
+    )
     assign_targets(game, picker)
     # ring carol -> alice -> bob -> carol
     assert (game.players["carol"].target_id, game.players["carol"].mission) == (
         "alice",
-        MISSIONS[0],
+        MISSION_KEYS[0],
     )
-    assert (game.players["alice"].target_id, game.players["alice"].mission) == ("bob", MISSIONS[1])
-    assert (game.players["bob"].target_id, game.players["bob"].mission) == ("carol", MISSIONS[2])
+    assert (game.players["alice"].target_id, game.players["alice"].mission) == (
+        "bob",
+        MISSION_KEYS[1],
+    )
+    assert (game.players["bob"].target_id, game.players["bob"].mission) == (
+        "carol",
+        MISSION_KEYS[2],
+    )
 
 
 @pytest.mark.parametrize("seed", range(20))

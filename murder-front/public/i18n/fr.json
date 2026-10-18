@@ -9,7 +9,8 @@
     "home": "Accueil",
     "notInGame": "Tu ne fais plus partie de cette partie.",
     "actionFailed": "Action impossible, réessaie.",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "missionReserved": "Ce texte est réservé aux missions par défaut (format « core.NN »)."
   },
   "home": {
     "eyebrow": "Assignations classifiées",
@@ -76,13 +77,14 @@
     "swap": "Changer de mission",
     "swapCost": "−1 pt",
     "ranking": "Classement",
-    "quotedMission": "« {{mission}} »",
     "claimFailed": "Revendication refusée",
     "swapConfirm": "Changer de mission te coûte 1 point.",
     "swapYes": "Changer (−1 pt)",
     "endGame": "Terminer la partie",
     "endConfirm": "Terminer la partie pour tous les agents ?",
-    "endYes": "Terminer maintenant"
+    "endYes": "Terminer maintenant",
+    "quoteOpen": "« ",
+    "quoteClose": " »"
   },
   "dossier": {
     "active": "Assignation active",
@@ -135,5 +137,39 @@
       "en": "English"
     },
     "missionLabel": "Mission"
+  },
+  "missions": {
+    "core": {
+      "01": "Fais dire « oui » trois fois de suite à ta cible.",
+      "02": "Prends un selfie avec ta cible.",
+      "03": "Fais un compliment à ta cible sur ses chaussures.",
+      "04": "Apprends la date de naissance de ta cible.",
+      "05": "Fais rire ta cible sans raconter de blague.",
+      "06": "Touche le coude de ta cible sans qu'elle s'en aperçoive.",
+      "07": "Fais dire le mot « banane » à ta cible.",
+      "08": "Échange un objet avec ta cible.",
+      "09": "Fais un check (tope-là) à ta cible.",
+      "10": "Convaincs ta cible de te suivre dans une autre pièce.",
+      "11": "Fais dire « je ne sais pas » à ta cible.",
+      "12": "Demande l'heure à ta cible.",
+      "13": "Trinque avec ta cible.",
+      "14": "Apprends le prénom du premier animal de ta cible.",
+      "15": "Fais chanter ta cible, ne serait-ce qu'un mot.",
+      "16": "Pose ta main sur l'épaule de ta cible pendant 3 secondes.",
+      "17": "Obtiens un « merci » de ta cible.",
+      "18": "Fais imiter un animal à ta cible.",
+      "19": "Découvre le film préféré de ta cible.",
+      "20": "Fais lever les deux mains à ta cible en même temps.",
+      "21": "Fais bâiller ta cible.",
+      "22": "Fais nommer trois pays à ta cible.",
+      "23": "Prends une photo de la main de ta cible.",
+      "24": "Fais dire « bien sûr » à ta cible.",
+      "25": "Emprunte le téléphone de ta cible 5 secondes.",
+      "26": "Fais danser ta cible, un pas suffit.",
+      "27": "Apprends la pointure de ta cible.",
+      "28": "Fais épeler son prénom à ta cible.",
+      "29": "Fais dire « c'est toi le coupable » à ta cible.",
+      "30": "Apprends le métier rêvé de ta cible."
+    }
   }
 }

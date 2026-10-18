@@ -7,7 +7,7 @@ randomness, so the rules are deterministic under test. No I/O, no framework impo
 from __future__ import annotations
 
 from src.domain.errors import PlayerNotFound
-from src.domain.missions import MISSIONS
+from src.domain.missions import MISSION_KEYS
 from src.domain.models import Game, MissionMode, Player
 from src.domain.randomness import Picker, pick_mission_excluding
 
@@ -25,7 +25,7 @@ def effective_missions(game: Game) -> tuple[str, ...]:
     Duplicates are removed, order preserved (catalogue first).
     """
     pool = [m.text for m in game.mission_pool]
-    base = pool if (game.mission_mode is MissionMode.REPLACE and pool) else [*MISSIONS, *pool]
+    base = pool if (game.mission_mode is MissionMode.REPLACE and pool) else [*MISSION_KEYS, *pool]
     seen: set[str] = set()
     out: list[str] = []
     for mission in base:

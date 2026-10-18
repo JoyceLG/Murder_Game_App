@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { translocoTesting } from '../../../testing/transloco-testing';
 import { Language } from '../../core/services/language';
 import { MissionLibrary } from '../../core/services/mission-library';
+import { Toast } from '../../core/services/toast';
 import { Settings } from './settings';
 
 describe('Settings screen', () => {
@@ -41,5 +42,16 @@ describe('Settings screen', () => {
     expect(fixture.componentInstance.draft).toBe('');
     const input = (fixture.nativeElement as HTMLElement).querySelector('.mission-list input');
     expect(input?.getAttribute('aria-label')).toBe('settings.missionLabel');
+  });
+
+  it('refuses a custom mission shaped like a catalogue key', () => {
+    const toast = TestBed.inject(Toast);
+    spyOn(toast, 'show');
+    const fixture = TestBed.createComponent(Settings);
+    fixture.componentInstance.draft = 'core.04';
+    fixture.componentInstance.add();
+    expect(toast.show).toHaveBeenCalledWith('common.missionReserved', 'bad');
+    expect(TestBed.inject(MissionLibrary).missions()).toEqual([]);
+    expect(fixture.componentInstance.draft).toBe('core.04'); // kept so the player can fix it
   });
 });
