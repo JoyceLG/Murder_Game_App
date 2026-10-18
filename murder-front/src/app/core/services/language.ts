@@ -1,3 +1,4 @@
+import { DOCUMENT } from '@angular/common';
 import { inject, Injectable, signal } from '@angular/core';
 import { TranslocoService } from '@jsverse/transloco';
 
@@ -14,22 +15,29 @@ export const SUPPORTED_LANGS: readonly Lang[] = ['fr', 'en'] as const;
 @Injectable({ providedIn: 'root' })
 export class Language {
   private transloco = inject(TranslocoService);
+  private document = inject(DOCUMENT);
   readonly current = signal<Lang>(this.initial());
   readonly supported = SUPPORTED_LANGS;
 
   constructor() {
-    this.transloco.setActiveLang(this.current());
+    this.apply(this.current());
   }
 
   set(lang: Lang): void {
     if (lang === this.current()) return;
     this.current.set(lang);
-    this.transloco.setActiveLang(lang);
+    this.apply(lang);
     try {
       localStorage.setItem(KEY, lang);
     } catch {
       // Storage unavailable (private mode / WebView quirks) — keep the in-memory choice.
     }
+  }
+
+  /** Switch the UI copy and tell assistive tech (and the browser) which language is shown. */
+  private apply(lang: Lang): void {
+    this.transloco.setActiveLang(lang);
+    this.document.documentElement.lang = lang;
   }
 
   private initial(): Lang {

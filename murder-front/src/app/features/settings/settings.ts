@@ -19,9 +19,11 @@ import { MissionLibrary } from '../../core/services/mission-library';
             type="button"
             class="lang-btn"
             [class.on]="lang.current() === l"
+            [attr.aria-pressed]="lang.current() === l"
+            [attr.lang]="l"
             (click)="setLang(l)"
           >
-            {{ l }}
+            {{ 'settings.langName.' + l | transloco }}
           </button>
         }
       </div>
@@ -48,7 +50,13 @@ import { MissionLibrary } from '../../core/services/mission-library';
         <ul class="mission-list">
           @for (m of lib.missions(); track m.id) {
             <li class="mission-row">
-              <input class="mission-edit" maxlength="120" [value]="m.text" #ed />
+              <input
+                class="mission-edit"
+                maxlength="120"
+                [value]="m.text"
+                [attr.aria-label]="'settings.missionLabel' | transloco"
+                #ed
+              />
               <button class="btn ghost small" (click)="lib.update(m.id, ed.value)">
                 {{ 'settings.save' | transloco }}
               </button>

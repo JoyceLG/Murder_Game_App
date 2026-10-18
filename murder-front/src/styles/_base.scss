@@ -24,7 +24,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: max(env(safe-area-inset-top), 16px) 18px 14px;
+  padding: max(env(safe-area-inset-top), 16px) max(env(safe-area-inset-right), 18px) 14px
+    max(env(safe-area-inset-left), 18px);
 }
 .brand {
   display: flex;
@@ -64,7 +65,9 @@ body {
   background: transparent;
   border: 1px solid transparent;
   border-radius: 6px;
-  padding: 2px 6px;
+  padding: 2px 12px;
+  min-height: 44px; /* touch target */
+  min-width: 44px;
   cursor: pointer;
 }
 .lang-btn.on {
@@ -95,7 +98,8 @@ body {
 }
 .btn.small {
   width: auto;
-  padding: 6px 10px;
+  padding: 6px 12px;
+  min-height: 44px; /* touch target */
   font-size: 12px;
 }
 
@@ -103,7 +107,8 @@ body {
 .client {
   max-width: 480px;
   margin: 0 auto;
-  padding: 6px 18px calc(env(safe-area-inset-bottom) + 24px);
+  padding: 6px max(env(safe-area-inset-right), 18px) calc(env(safe-area-inset-bottom) + 24px)
+    max(env(safe-area-inset-left), 18px);
   display: block;
 }
 .idline {

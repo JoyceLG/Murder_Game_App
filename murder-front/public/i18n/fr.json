@@ -1,9 +1,18 @@
 {
-  "app": { "tagline": "DOSSIER //" },
-  "common": { "leave": "Quitter", "home": "Accueil" },
+  "app": {
+    "tagline": "DOSSIER //",
+    "reconnecting": "Connexion perdue — reconnexion…",
+    "restoring": "Reconnexion à la partie…"
+  },
+  "common": {
+    "leave": "Quitter",
+    "home": "Accueil",
+    "notInGame": "Tu ne fais plus partie de cette partie.",
+    "actionFailed": "Action impossible, réessaie.",
+    "cancel": "Annuler"
+  },
   "home": {
     "eyebrow": "Assignations classifiées",
-    "title": "Une mission.<br>Une cible.<br>Discrétion absolue.",
     "lead": "Crée une opération, partage le code, élimine ta cible sans te faire griller.",
     "agentName": "Ton nom d'agent",
     "agentPlaceholder": "Ex. Corbeau",
@@ -16,8 +25,15 @@
       "name": "Indique ton nom",
       "code": "Code à 4 caractères",
       "createFailed": "Création impossible",
-      "notFound": "Aucune partie pour ce code"
-    }
+      "notFound": "Aucune partie pour ce code",
+      "full": "La partie est complète",
+      "started": "La partie a déjà commencé",
+      "rateLimited": "Trop de tentatives, patiente une minute",
+      "network": "Serveur injoignable"
+    },
+    "titleLine1": "Une mission.",
+    "titleLine2": "Une cible.",
+    "titleLine3": "Discrétion absolue."
   },
   "lobby": {
     "waiting": "Salle d'attente",
@@ -28,7 +44,10 @@
     "maxScore": "Points pour gagner (optionnel)",
     "noLimit": "Aucune limite",
     "rulesPlayers": "Joueurs max : {{count}}",
-    "rulesGoalPoints": "Objectif : {{count}} points",
+    "rulesGoalPoints": {
+      "one": "Objectif : {{count}} point",
+      "other": "Objectif : {{count}} points"
+    },
     "rulesGoalTime": "Objectif : durée écoulée",
     "configError": "Configuration refusée",
     "missionsTitle": "Missions personnalisées",
@@ -43,7 +62,8 @@
     "start": "Lancer l'opération",
     "minPlayers": "Au moins 2 agents requis",
     "standby": "En attente",
-    "waitingHost": "L'hôte n'a pas encore lancé…"
+    "waitingHost": "L'hôte n'a pas encore lancé…",
+    "startError": "Lancement impossible"
   },
   "game": {
     "attempt": "Tentative d'élimination",
@@ -55,25 +75,50 @@
     "kill": "J'ai éliminé ma cible",
     "swap": "Changer de mission",
     "swapCost": "−1 pt",
-    "ranking": "Classement"
+    "ranking": "Classement",
+    "quotedMission": "« {{mission}} »",
+    "claimFailed": "Revendication refusée",
+    "swapConfirm": "Changer de mission te coûte 1 point.",
+    "swapYes": "Changer (−1 pt)",
+    "endGame": "Terminer la partie",
+    "endConfirm": "Terminer la partie pour tous les agents ?",
+    "endYes": "Terminer maintenant"
   },
-  "dossier": { "active": "Assignation active", "target": "Cible :" },
-  "hud": { "time": "Temps", "score": "Score", "rank": "Rang" },
+  "dossier": {
+    "active": "Assignation active",
+    "target": "Cible :",
+    "number": "N° {{code}}-{{n}}"
+  },
+  "hud": {
+    "time": "Temps",
+    "score": "Score",
+    "rank": "Rang"
+  },
   "seal": {
     "accessCode": "Code d'accès",
     "share": "Partage ce code pour recruter des agents"
   },
-  "roster": { "you": "TOI", "host": "HÔTE" },
+  "roster": {
+    "you": "TOI",
+    "host": "HÔTE"
+  },
   "end": {
     "over": "Opération terminée",
-    "finalScore": "Score final : {{count}} élimination(s).",
+    "finalScore": {
+      "one": "Score final : {{count}} élimination.",
+      "other": "Score final : {{count}} éliminations."
+    },
     "finalRanking": "Classement final",
     "youWin": "Tu remportes l'opération.",
     "someoneWins": "{{name}} l'emporte.",
     "gameOver": "Fin de partie",
-    "backHome": "Retour à l'accueil"
+    "backHome": "Retour à l'accueil",
+    "tie": "Égalité au sommet"
   },
-  "gone": { "offline": "Hors ligne", "noGame": "La partie n'existe plus." },
+  "gone": {
+    "offline": "Hors ligne",
+    "noGame": "La partie n'existe plus."
+  },
   "settings": {
     "language": "Langue",
     "missionsTitle": "Mes missions personnalisées",
@@ -84,6 +129,11 @@
     "save": "Enregistrer",
     "delete": "Supprimer",
     "empty": "Aucune mission pour l'instant.",
-    "back": "Retour"
+    "back": "Retour",
+    "langName": {
+      "fr": "Français",
+      "en": "English"
+    },
+    "missionLabel": "Mission"
   }
 }

@@ -9,7 +9,9 @@ import { TranslocoPipe } from '@jsverse/transloco';
     <div class="dossier">
       <div class="drow">
         <span class="stamp">{{ 'dossier.active' | transloco }}</span>
-        <span class="eyebrow">N° {{ code() }}-{{ killNo() }}</span>
+        <span class="eyebrow">{{
+          'dossier.number' | transloco: { code: code(), n: killNo() }
+        }}</span>
       </div>
       <div class="mtext">{{ mission() }}</div>
       <div class="target">

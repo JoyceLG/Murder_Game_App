@@ -1,104 +1,119 @@
+import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
-import { Subscription, firstValueFrom } from 'rxjs';
+import { Observable, Subscription, firstValueFrom, timeout } from 'rxjs';
 
-import { GameStateDto, MissionMode } from '../models/game.dto';
-import { GameApi } from './game-api';
-import { Realtime } from './realtime';
+import { ClaimDto, GameStateDto, MissionMode, PlayerAuth } from '../models/game.dto';
+import { GameApi, apiFailure } from './game-api';
+import { FATAL_CLOSE_CODES, LiveClosedError, Realtime } from './realtime';
 import { Session } from './session';
 
-export type Screen = 'home' | 'lobby' | 'game' | 'end' | 'gone';
+export type Screen = 'home' | 'restoring' | 'lobby' | 'game' | 'end' | 'gone';
+
+/** idle: no game · connecting: first connection · online · offline: lost, reconnecting. */
+export type LiveStatus = 'idle' | 'connecting' | 'online' | 'offline';
+
+/** How long app start waits for the server before showing the UI anyway. */
+export const REHYDRATE_TIMEOUT_MS = 3_000;
 
 /**
- * Single source of truth for the UI. The WebSocket feeds `state`; everything the screens need is
- * a `computed` derived from it (the Angular port of game.js `_recompute`). The only genuinely
- * client-side derivation is the countdown, ticked once a second.
+ * Single source of truth for the UI. The server sends each player their own view of the game
+ * (REST responses and WebSocket pushes alike); the newest one by `version` wins. Everything the
+ * screens need is a `computed` derived from it. The only client-side derivation is the
+ * countdown, ticked once a second against the *server* clock (device clock + measured offset).
  */
 @Injectable({ providedIn: 'root' })
 export class GameStore {
   private api = inject(GameApi);
   private realtime = inject(Realtime);
   private session = inject(Session);
+  private document = inject(DOCUMENT);
 
   readonly state = signal<GameStateDto | null>(null);
-  readonly connected = signal(false);
+  readonly live = signal<LiveStatus>('idle');
+  readonly connected = computed(() => this.live() === 'online');
   /** Set when a known session points at a game the server no longer has -> show the gone screen. */
   private readonly gone = signal(false);
   private readonly now = signal(Date.now());
+  /** server clock - device clock, measured on every state received. */
+  private readonly clockOffset = signal(0);
   private liveSub: Subscription | null = null;
+  /** Version for which we already asked the server to settle a timed-out game. */
+  private settleAskedAt = -1;
 
   constructor() {
-    const tick = setInterval(() => this.now.set(Date.now()), 1000);
-    inject(DestroyRef).onDestroy(() => clearInterval(tick));
+    const tick = setInterval(() => this.onTick(), 1000);
+    const onVisibility = () => this.onVisibilityChange();
+    this.document.addEventListener('visibilitychange', onVisibility);
+    inject(DestroyRef).onDestroy(() => {
+      clearInterval(tick);
+      this.document.removeEventListener('visibilitychange', onVisibility);
+      this.liveSub?.unsubscribe();
+    });
   }
 
   // --- viewer-relative derived state ---
-  readonly me = computed(() => {
-    const s = this.state();
-    const id = this.session.playerId();
-    return s ? (s.players.find((p) => p.id === id) ?? null) : null;
-  });
+  readonly serverNow = computed(() => this.now() + this.clockOffset());
+  readonly me = computed(() => this.state()?.me ?? null);
   readonly target = computed(() => {
     const s = this.state();
-    const me = this.me();
-    return s && me?.target_id ? (s.players.find((p) => p.id === me.target_id) ?? null) : null;
+    const targetId = this.me()?.target_id;
+    return s && targetId ? (s.players.find((p) => p.id === targetId) ?? null) : null;
   });
   readonly ranking = computed(() => this.state()?.ranking ?? []);
   readonly myRank = computed(() => {
-    const id = this.session.playerId();
+    const id = this.me()?.id;
     const index = this.ranking().findIndex((p) => p.id === id);
     return index < 0 ? 0 : index + 1;
   });
   readonly incoming = computed(() => {
-    const s = this.state();
-    const id = this.session.playerId();
-    return s?.claims.find((c) => c.target === id && c.status === 'pending') ?? null;
+    const id = this.me()?.id;
+    return this.state()?.claims.find((c) => c.target === id && c.status === 'pending') ?? null;
   });
   readonly myClaim = computed(() => {
-    const s = this.state();
-    const id = this.session.playerId();
-    return s?.claims.find((c) => c.atk === id) ?? null;
+    const id = this.me()?.id;
+    return this.state()?.claims.find((c) => c.atk === id) ?? null;
   });
   readonly isPending = computed(() => this.myClaim()?.status === 'pending');
   readonly isHost = computed(() => {
     const s = this.state();
-    return !!s && s.host_id === this.session.playerId();
+    return !!s && !!s.me && s.host_id === s.me.id;
   });
   readonly remaining = computed(() => {
     const s = this.state();
     if (!s || !s.end_at) return 0;
-    return Math.max(0, Math.floor((s.end_at - this.now()) / 1000));
+    return Math.max(0, Math.floor((s.end_at - this.serverNow()) / 1000));
   });
   readonly screen = computed<Screen>(() => this.deriveScreen());
 
   private deriveScreen(): Screen {
     if (this.gone()) return 'gone';
     const s = this.state();
-    if (!s) return 'home';
-    const timeUp = s.end_at > 0 && this.now() >= s.end_at;
+    if (!s) return this.session.session() ? 'restoring' : 'home';
+    const timeUp = s.end_at > 0 && this.serverNow() >= s.end_at;
     if (s.status === 'lobby') return 'lobby';
     if (s.status === 'running' && !timeUp) return 'game';
     return 'end';
   }
 
-  // --- actions (orchestrate REST; the WebSocket push refreshes `state`) ---
+  // --- actions (REST; the response is the caller's fresh view, pushes keep everyone else in sync)
   async create(name: string): Promise<void> {
     const res = await firstValueFrom(this.api.createGame(name));
     this.gone.set(false);
-    this.session.set({ code: res.code, playerId: res.player_id, isHost: true });
-    this.state.set(res);
-    this.connect(res.code);
+    this.session.set({ code: res.code, playerId: res.player_id, token: res.player_token });
+    this.apply(res);
+    this.connect();
   }
 
   async join(code: string, name: string): Promise<void> {
     const res = await firstValueFrom(this.api.joinGame(code, name));
     this.gone.set(false);
-    this.session.set({ code, playerId: res.player_id, isHost: res.host_id === res.player_id });
-    this.state.set(res);
-    this.connect(code);
+    this.session.set({ code, playerId: res.player_id, token: res.player_token });
+    this.apply(res);
+    this.connect();
   }
 
   start(durationMin: number): Promise<GameStateDto> {
-    return firstValueFrom(this.api.start(this.session.code(), durationMin, this.session.playerId()));
+    return this.call((code, auth) => this.api.start(code, durationMin, auth));
   }
 
   updateConfig(
@@ -106,50 +121,51 @@ export class GameStore {
     maxScore: number | null,
     missionMode: MissionMode,
   ): Promise<GameStateDto> {
-    return firstValueFrom(
-      this.api.updateConfig(
-        this.session.code(),
-        this.session.playerId(),
-        maxPlayers,
-        maxScore,
-        missionMode,
-      ),
+    return this.call((code, auth) =>
+      this.api.updateConfig(code, auth, maxPlayers, maxScore, missionMode),
     );
   }
 
-  addMission(text: string): Promise<unknown> {
-    return firstValueFrom(
-      this.api.addMission(this.session.code(), this.session.playerId(), text),
-    );
+  addMission(text: string): Promise<GameStateDto> {
+    return this.call((code, auth) => this.api.addMission(code, auth, text));
   }
 
-  removeMission(missionId: string): Promise<unknown> {
-    return firstValueFrom(
-      this.api.removeMission(this.session.code(), this.session.playerId(), missionId),
-    );
+  removeMission(missionId: string): Promise<GameStateDto> {
+    return this.call((code, auth) => this.api.removeMission(code, auth, missionId));
   }
 
-  claimKill(): Promise<unknown> {
-    return firstValueFrom(this.api.claim(this.session.code(), this.session.playerId()));
+  claimKill(): Promise<ClaimDto> {
+    return firstValueFrom(this.api.claim(this.session.code(), this.requireAuth()));
   }
 
-  confirm(ok: boolean): Promise<unknown> {
+  async confirm(ok: boolean): Promise<GameStateDto | null> {
     const claim = this.incoming();
-    if (!claim) return Promise.resolve(null);
-    return firstValueFrom(
-      this.api.confirm(this.session.code(), claim.atk, ok, this.session.playerId()),
-    );
+    if (!claim) return null;
+    return this.call((code, auth) => this.api.confirm(code, claim.atk, ok, auth));
   }
 
-  swap(): Promise<unknown> {
-    return firstValueFrom(this.api.swap(this.session.code(), this.session.playerId()));
+  swap(): Promise<GameStateDto> {
+    return this.call((code, auth) => this.api.swap(code, auth));
   }
 
+  /** Host only: end a running game now. */
+  end(): Promise<GameStateDto> {
+    return this.call((code, auth) => this.api.end(code, auth));
+  }
+
+  /**
+   * Leave the current game. Once it has ended there is nothing to leave on the server — the
+   * final ranking is everyone's record — so we only forget the session on this device.
+   */
   async leave(): Promise<void> {
     const code = this.session.code();
-    const id = this.session.playerId();
+    const auth = this.session.auth();
+    if (this.state()?.status === 'ended' || this.screen() === 'end') {
+      this.reset();
+      return;
+    }
     try {
-      if (code && id) await firstValueFrom(this.api.leave(code, id));
+      if (code && auth) await firstValueFrom(this.api.leave(code, auth));
     } catch {
       // best-effort: still tear down locally
     } finally {
@@ -157,40 +173,143 @@ export class GameStore {
     }
   }
 
-  /** Called at app start: if a session exists, revalidate it and reconnect (survives refresh). */
+  /** Forget the game on this device without telling the server (end and gone screens). */
+  exit(): void {
+    this.reset();
+  }
+
+  /** Re-read the caller's view (e.g. after the clock ran out: the server settles and pushes). */
+  async refresh(): Promise<void> {
+    const code = this.session.code();
+    const auth = this.session.auth();
+    if (!code || !auth) return;
+    try {
+      this.apply(await firstValueFrom(this.api.getState(code, auth)));
+    } catch (err) {
+      if (this.isGoneError(err)) this.markGone();
+    }
+  }
+
+  /**
+   * Called at app start: if a session exists, revalidate it and reconnect (survives refresh).
+   * Only a definite answer (404 game gone, 401 credentials refused) drops the session; a network
+   * error, a 5xx during a redeploy or a slow server keep it and let the WebSocket catch up.
+   */
   async rehydrate(): Promise<void> {
     const session = this.session.session();
     if (!session) return;
     try {
-      const state = await firstValueFrom(this.api.getState(session.code));
-      this.state.set(state);
-      this.connect(session.code);
-    } catch {
-      // The session refers to a game the server no longer has -> route to the gone screen.
-      this.session.clear();
-      this.state.set(null);
-      this.gone.set(true);
+      const state = await firstValueFrom(
+        this.api.getState(session.code, session).pipe(timeout(REHYDRATE_TIMEOUT_MS)),
+      );
+      this.apply(state);
+    } catch (err) {
+      if (this.isGoneError(err)) {
+        this.markGone();
+        return;
+      }
+      this.live.set('offline');
     }
+    this.connect();
   }
 
-  private connect(code: string): void {
+  /** Keep a state unless it is older than the one we already hold (REST and WS race). */
+  apply(next: GameStateDto): void {
+    const current = this.state();
+    if (current && current.code === next.code && next.version < current.version) return;
+    this.clockOffset.set(next.server_now - Date.now());
+    this.now.set(Date.now());
+    this.state.set(next);
+  }
+
+  private async call(
+    request: (code: string, auth: PlayerAuth) => Observable<GameStateDto>,
+  ): Promise<GameStateDto> {
+    const state = await firstValueFrom(request(this.session.code(), this.requireAuth()));
+    this.apply(state);
+    return state;
+  }
+
+  private requireAuth(): PlayerAuth {
+    const auth = this.session.auth();
+    if (!auth) throw new Error('no active session');
+    return auth;
+  }
+
+  private connect(): void {
+    const code = this.session.code();
+    const auth = this.session.auth();
+    if (!code || !auth) return;
     this.liveSub?.unsubscribe();
-    this.liveSub = this.realtime.connect(code).subscribe({
-      next: (state) => {
-        this.state.set(state);
-        this.connected.set(true);
+    if (this.live() !== 'offline') this.live.set('connecting');
+    this.liveSub = this.realtime.connect(code, auth).subscribe({
+      next: (event) => {
+        if (event.kind === 'state') this.apply(event.state);
+        else if (event.kind === 'connected') this.live.set('online');
+        else this.live.set('offline');
       },
-      error: () => this.connected.set(false),
-      complete: () => this.connected.set(false),
+      error: (err: unknown) => {
+        if (
+          err instanceof LiveClosedError &&
+          (FATAL_CLOSE_CODES as readonly number[]).includes(err.code)
+        ) {
+          this.markGone();
+        } else {
+          this.live.set('offline');
+        }
+      },
     });
   }
 
-  private reset(): void {
+  private disconnect(): void {
     this.liveSub?.unsubscribe();
     this.liveSub = null;
+  }
+
+  private onTick(): void {
+    this.now.set(Date.now());
+    // No server-side scheduler: when our (server-corrected) clock says time is up, ask the
+    // server once; it settles the game to ENDED and pushes that to every player.
+    const s = this.state();
+    if (
+      s?.status === 'running' &&
+      s.end_at > 0 &&
+      this.serverNow() >= s.end_at &&
+      this.settleAskedAt !== s.version
+    ) {
+      this.settleAskedAt = s.version;
+      void this.refresh();
+    }
+  }
+
+  /** In the background (phone locked, app switched) drop the socket; resync on return. */
+  private onVisibilityChange(): void {
+    if (!this.session.session()) return;
+    if (this.document.visibilityState === 'hidden') {
+      this.disconnect();
+    } else if (!this.liveSub && !this.gone()) {
+      this.connect(); // the server sends a fresh snapshot on connect
+    }
+  }
+
+  private isGoneError(err: unknown): boolean {
+    const { status } = apiFailure(err);
+    return status === 404 || status === 401;
+  }
+
+  private markGone(): void {
+    this.disconnect();
     this.session.clear();
     this.state.set(null);
-    this.connected.set(false);
+    this.live.set('idle');
+    this.gone.set(true);
+  }
+
+  private reset(): void {
+    this.disconnect();
+    this.session.clear();
+    this.state.set(null);
+    this.live.set('idle');
     this.gone.set(false);
   }
 }
