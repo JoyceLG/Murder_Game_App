@@ -36,6 +36,12 @@ export function gameState(partial: Partial<GameStateDto> = {}): GameStateDto {
   };
 }
 
+/** Same rule as GameStore.myResult: only an answered (ok/no) claim of the viewer counts. */
+function resultOf(state: GameStateDto | null): 'ok' | 'no' | null {
+  const status = state?.claims.find((c) => c.atk === state.me?.id)?.status;
+  return status === 'ok' || status === 'no' ? status : null;
+}
+
 /** A GameStore stand-in for component specs: real signals, spied actions. */
 export function fakeStore(state: GameStateDto | null = gameState()) {
   const s = signal<GameStateDto | null>(state);
@@ -67,10 +73,7 @@ export function fakeStore(state: GameStateDto | null = gameState()) {
     myRank: signal(1),
     incoming: signal(state?.claims.find((c) => c.target === state?.me?.id) ?? null),
     isPending: signal(false),
-    myResult: signal<'ok' | 'no' | null>(
-      (state?.claims.find((c) => c.atk === state?.me?.id)?.status as 'ok' | 'no' | undefined) ??
-        null,
-    ),
+    myResult: signal(resultOf(state)),
     isHost: signal(!!state?.me && state.host_id === state.me.id),
     remaining: signal(90),
     live: signal('online'),

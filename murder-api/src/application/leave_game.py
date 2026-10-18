@@ -12,9 +12,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application._support import get_game_or_404, settle_end
-from src.domain.models import ClaimStatus, Game, GameStatus
+from src.domain.models import Game, GameStatus
 from src.domain.randomness import Picker
-from src.domain.rules import reassign_targets_away_from
+from src.domain.rules import remove_player
 from src.ports.clock import Clock
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
@@ -35,26 +35,11 @@ class LeaveGame:
         if game.status is GameStatus.ENDED:
             return game
 
-        leaver = game.players.pop(player_id, None)
-        game.claims.pop(player_id, None)
-        for attacker_id, claim in list(game.claims.items()):
-            # A pending claim on the leaver can never be answered: drop it. A resolved one is
-            # the attacker's result to acknowledge: keep it.
-            if claim.target == player_id and claim.status is ClaimStatus.PENDING:
-                game.claims.pop(attacker_id, None)
-
+        remove_player(game, player_id, self.picker)
         if not game.players:
             await self.repo.delete(code)
             await self.notifier.close(code)
             return game
-
-        # Hunters who were targeting the leaver must not keep a dangling target_id.
-        reassign_targets_away_from(
-            game, player_id, self.picker, leaver.target_id if leaver else None
-        )
-
-        if game.host_id == player_id:
-            game.host_id = next(iter(game.players))
 
         await self.repo.save(game)
         await self.notifier.publish(game)

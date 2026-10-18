@@ -6,7 +6,7 @@ import hashlib
 
 from src.domain.errors import GameNotFound
 from src.domain.models import Game, GameStatus
-from src.domain.rules import close_claims
+from src.domain.rules import finish
 from src.ports.clock import Clock
 from src.ports.repository import GameRepository
 
@@ -29,8 +29,7 @@ def settle_end(game: Game, clock: Clock) -> bool:
     if game.status is GameStatus.RUNNING and (
         game.is_time_up(clock.now_ms()) or game.score_cap_reached()
     ):
-        game.status = GameStatus.ENDED
-        close_claims(game)
+        finish(game)
         return True
     return False
 

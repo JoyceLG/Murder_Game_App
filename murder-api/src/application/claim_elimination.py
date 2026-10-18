@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application._support import get_game_or_404, settle_end
-from src.domain.errors import ClaimAwaitingAck, GameNotRunning, NoTargetAssigned, PlayerNotFound
-from src.domain.models import Claim, ClaimStatus, GameStatus
-from src.domain.rules import awaiting_ack
+from src.domain.errors import GameNotRunning
+from src.domain.models import Claim, GameStatus
+from src.domain.rules import open_claim
 from src.ports.clock import Clock
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
@@ -24,23 +24,7 @@ class ClaimElimination:
         settle_end(game, self.clock)
         if game.status is not GameStatus.RUNNING:
             raise GameNotRunning(code)
-        attacker = game.players.get(attacker_id)
-        if attacker is None:
-            raise PlayerNotFound(attacker_id)
-        if not attacker.target_id:
-            raise NoTargetAssigned()
-        if awaiting_ack(game, attacker_id):  # see the last result first
-            raise ClaimAwaitingAck()
-
-        claim = Claim(
-            atk=attacker_id,
-            atk_name=attacker.name,
-            target=attacker.target_id,
-            mission=attacker.mission,
-            status=ClaimStatus.PENDING,
-            ts=self.clock.now_ms(),
-        )
-        game.claims[attacker_id] = claim  # one active claim per attacker (overwrites any prior)
+        claim = open_claim(game, attacker_id, self.clock.now_ms())
         await self.repo.save(game)
         await self.notifier.publish(game)
         return claim

@@ -115,6 +115,34 @@ describe('GameStore', () => {
     expect(store.myResult()).toBeNull();
   });
 
+  it('quietly resyncs when there is nothing left to acknowledge (game ended meanwhile)', async () => {
+    store.apply(
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'ok' }] }),
+    );
+    const done = store.acknowledge();
+    http
+      .expectOne((r) => r.url.endsWith('/claims/h/ack'))
+      .flush({ error: 'GameNotRunning' }, { status: 409, statusText: 'Conflict' });
+    await Promise.resolve();
+    await Promise.resolve();
+    http
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith('/games/ABCD'))
+      .flush(gameState({ status: 'ended', version: 9, claims: [] }));
+    expect(await done).toBeNull();
+    expect(store.screen()).toBe('end');
+  });
+
+  it('still reports unexpected acknowledgement failures', async () => {
+    store.apply(
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'no' }] }),
+    );
+    const done = store.acknowledge();
+    http
+      .expectOne((r) => r.url.endsWith('/claims/h/ack'))
+      .flush(null, { status: 500, statusText: 'Server Error' });
+    await expectAsync(done).toBeRejected();
+  });
+
   it('has nothing to acknowledge while my claim is pending', async () => {
     store.apply(
       gameState({

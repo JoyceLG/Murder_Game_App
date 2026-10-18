@@ -5,21 +5,25 @@ import pytest
 
 from src.domain.errors import (
     ClaimAlreadyResolved,
+    ClaimAwaitingAck,
     ClaimNotFound,
     ClaimNotResolved,
+    NoTargetAssigned,
     PlayerNotFound,
 )
 from src.domain.missions import MISSION_KEYS
-from src.domain.models import ClaimStatus
+from src.domain.models import ClaimStatus, GameStatus
 from src.domain.randomness import RandomPicker
 from src.domain.rules import (
     advance_after_resolution,
     assign_targets,
     awaiting_ack,
     clamp_duration_min,
-    close_claims,
+    finish,
     mark_resolved,
+    open_claim,
     reassign_targets_away_from,
+    remove_player,
     swap_mission,
 )
 from tests.builders import add_claim, make_game, running_game
@@ -378,11 +382,103 @@ def test_advance_for_unknown_attacker_raises():
         advance_after_resolution(game, "ghost", FirstPicker())
 
 
-def test_close_claims_settles_everything_at_the_end():
+def test_finish_ends_the_game_and_settles_every_claim():
     game = running_game(["a", "b", "c"], FirstPicker())
     add_claim(game, "a")
     add_claim(game, "b")
     mark_resolved(game, "a", confirmed=True)
-    close_claims(game)
+    finish(game)
+    assert game.status is GameStatus.ENDED
     assert game.claims == {}
     assert game.players["a"].score == 1  # already counted
+
+
+# --- review of #19: rules that must hold around the acknowledgement --------------------
+
+
+def test_open_claim_requires_acknowledging_first_even_without_target():
+    game = running_game(["a", "b"], FirstPicker())
+    add_claim(game, "a")
+    mark_resolved(game, "a", confirmed=True)
+    game.players["a"].target_id = None  # e.g. the only other player left
+    with pytest.raises(ClaimAwaitingAck):
+        open_claim(game, "a", ts=1)
+
+
+def test_open_claim_records_a_pending_claim_on_the_current_target():
+    game = running_game(["a", "b", "c"], FirstPicker())
+    claim = open_claim(game, "a", ts=42)
+    assert (claim.target, claim.status, claim.ts) == ("b", ClaimStatus.PENDING, 42)
+    assert game.claims["a"] is claim
+
+
+def test_open_claim_without_target_or_player_raises():
+    game = running_game(["a", "b"], FirstPicker())
+    game.players["a"].target_id = None
+    with pytest.raises(NoTargetAssigned):
+        open_claim(game, "a", ts=1)
+    with pytest.raises(PlayerNotFound):
+        open_claim(game, "ghost", ts=1)
+
+
+def test_swap_mission_waits_for_the_acknowledgement():
+    game = running_game(["a", "b"], FirstPicker())
+    add_claim(game, "a")
+    mark_resolved(game, "a", confirmed=False)
+    with pytest.raises(ClaimAwaitingAck):
+        swap_mission(game, "a", FirstPicker())
+    assert game.players["a"].score == 0
+
+
+def test_victim_leaving_before_the_ack_keeps_the_attackers_new_target():
+    game = running_game(["a", "b", "c", "d"], FirstPicker())  # a -> b -> c -> d -> a
+    add_claim(game, "a")
+    mark_resolved(game, "a", confirmed=True)
+
+    remove_player(game, "b", FirstPicker())
+    assert game.players["a"].target_id == "c"  # inherited from the leaver
+    assert game.claims["a"].status is ClaimStatus.OK  # still to acknowledge
+
+    advance_after_resolution(game, "a", FirstPicker())
+    assert game.players["a"].target_id == "c"  # c was not eliminated: no second move
+    assert set(_hunt_counts(game).values()) == {1}
+
+
+def test_refused_victim_leaving_before_the_ack_keeps_the_new_target_too():
+    game = running_game(["a", "b", "c", "d"], FirstPicker())
+    add_claim(game, "a")
+    mark_resolved(game, "a", confirmed=False)
+    remove_player(game, "b", FirstPicker())
+    advance_after_resolution(game, "a", FirstPicker())
+    assert game.players["a"].target_id == "c"
+
+
+def test_a_player_slow_to_acknowledge_does_not_break_the_ring():
+    # ring a -> b -> c -> d -> e -> a; c scored on d and has not acknowledged yet
+    game = running_game(["a", "b", "c", "d", "e"], FirstPicker())
+    add_claim(game, "c")
+    mark_resolved(game, "c", confirmed=True)
+    add_claim(game, "d")  # pending: d is off limits, so c is the only partner for a swap
+    add_claim(game, "a")
+    mark_resolved(game, "a", confirmed=True)
+
+    advance_after_resolution(game, "a", FirstPicker())  # may swap with c
+    advance_after_resolution(game, "c", FirstPicker())
+
+    assert set(_hunt_counts(game).values()) == {1}
+    assert all(p.target_id != p.id for p in game.players.values())
+
+
+def test_remove_player_drops_pending_claims_on_them_and_passes_the_host_role():
+    game = running_game(["a", "b", "c"], FirstPicker())
+    add_claim(game, "c")  # c -> a, pending
+    add_claim(game, "a")
+    remove_player(game, "a", FirstPicker())
+    assert game.claims == {}
+    assert game.host_id == "b"
+
+
+def test_remove_last_player_leaves_an_empty_game():
+    game = make_game(["solo"])
+    remove_player(game, "solo", FirstPicker())
+    assert game.players == {}

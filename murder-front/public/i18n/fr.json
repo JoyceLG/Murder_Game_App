@@ -89,7 +89,7 @@
     "resultOkLead": "Mission accomplie : +1 point.",
     "nextMission": "Lancer la prochaine mission",
     "resultNo": "Élimination refusée",
-    "resultNoLead": "{{name}} conteste. Ta cible ne change pas.",
+    "resultNoLead": "Ta cible conteste : pas de point cette fois.",
     "newMission": "Nouvelle mission"
   },
   "dossier": {

@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from src.domain.errors import (
     ClaimAlreadyResolved,
+    ClaimAwaitingAck,
     ClaimNotFound,
     ClaimNotResolved,
+    NoTargetAssigned,
     PlayerNotFound,
 )
 from src.domain.missions import MISSION_KEYS, is_catalogue_key
-from src.domain.models import ClaimStatus, Game, MissionMode, Player
+from src.domain.models import Claim, ClaimStatus, Game, GameStatus, MissionMode, Player
 from src.domain.randomness import Picker, pick_mission_excluding
 
 
@@ -83,12 +85,18 @@ def assign_targets(game: Game, picker: Picker) -> None:
         player.mission = picker.choice(missions)
 
 
+def _has_pending_claim(game: Game, player_id: str) -> bool:
+    claim = game.claims.get(player_id)
+    return claim is not None and claim.status is ClaimStatus.PENDING
+
+
 def _retarget_after_kill(game: Game, attacker: Player, picker: Picker) -> None:
     """Give a scoring attacker a new target while keeping "hunted exactly once" when possible.
 
     Preferred: swap targets with another hunter P (attacker takes P's target, P takes the victim).
     The ring stays a permutation, so nobody ends up hunted twice or not at all. P must not have a
-    pending claim (its target would change under it) and the swap must not make anyone hunt
+    *pending* claim (its target would change under the claim; a resolved claim waiting for P's
+    ack is fine, see `advance_after_resolution`) and the swap must not make anyone hunt
     themselves. When no such swap exists (e.g. three players), fall back to the least-hunted
     player other than the victim; with two players the victim is the only choice.
     """
@@ -99,7 +107,7 @@ def _retarget_after_kill(game: Game, attacker: Player, picker: Picker) -> None:
         if p.id not in (attacker.id, victim)
         and p.target_id is not None
         and p.target_id not in (attacker.id, victim)
-        and p.id not in game.claims
+        and not _has_pending_claim(game, p.id)
     ]
     if partners and victim is not None:
         partner = picker.choice(partners)
@@ -111,6 +119,31 @@ def _retarget_after_kill(game: Game, attacker: Player, picker: Picker) -> None:
         return
     pool = [i for i in others if i != victim] or others
     attacker.target_id = _least_hunted(game, pool, attacker.id, picker)
+
+
+def open_claim(game: Game, attacker_id: str, ts: int) -> Claim:
+    """The attacker says they completed their mission on their target; the target must answer.
+
+    One active claim per attacker (a new one replaces a pending one). Not allowed while the
+    attacker still has a result to acknowledge — that check comes first, whatever else holds.
+    """
+    attacker = game.players.get(attacker_id)
+    if attacker is None:
+        raise PlayerNotFound(attacker_id)
+    if awaiting_ack(game, attacker_id):  # see the last result first
+        raise ClaimAwaitingAck()
+    if not attacker.target_id:
+        raise NoTargetAssigned()
+    claim = Claim(
+        atk=attacker_id,
+        atk_name=attacker.name,
+        target=attacker.target_id,
+        mission=attacker.mission,
+        status=ClaimStatus.PENDING,
+        ts=ts,
+    )
+    game.claims[attacker_id] = claim
+    return claim
 
 
 def mark_resolved(game: Game, attacker_id: str, confirmed: bool) -> None:
@@ -153,17 +186,19 @@ def advance_after_resolution(game: Game, attacker_id: str, picker: Picker) -> No
     if claim.status is ClaimStatus.PENDING:
         raise ClaimNotResolved(attacker_id)
 
-    if claim.status is ClaimStatus.OK:
+    # If the victim left meanwhile, the attacker was already given someone else to hunt
+    # (`remove_player`): that player is not the one eliminated, so keep them.
+    if claim.status is ClaimStatus.OK and attacker.target_id == claim.target:
         _retarget_after_kill(game, attacker, picker)
     attacker.mission = pick_mission_excluding(picker, attacker.mission, effective_missions(game))
     del game.claims[attacker_id]
 
 
-def close_claims(game: Game) -> None:
-    """The game is over: every claim is settled as is (scores already counted, nothing to deal).
-
-    This is the automatic acknowledgement at the end, so no player is left waiting on a claim.
-    """
+def finish(game: Game) -> None:
+    """End the game. Every claim is settled as is (scores already counted, nothing to deal):
+    the automatic acknowledgement, so no player is left waiting on a result. Every way a game
+    ends (clock, score cap, host) goes through here."""
+    game.status = GameStatus.ENDED
     game.claims.clear()
 
 
@@ -202,5 +237,26 @@ def swap_mission(game: Game, player_id: str, picker: Picker) -> None:
     player = game.players.get(player_id)
     if player is None:
         raise PlayerNotFound(player_id)
+    if awaiting_ack(game, player_id):  # acknowledging deals the next mission anyway
+        raise ClaimAwaitingAck()
     player.mission = pick_mission_excluding(picker, player.mission, effective_missions(game))
     player.score -= 1
+
+
+def remove_player(game: Game, player_id: str, picker: Picker) -> None:
+    """A player leaves a game that is not over.
+
+    Their own claim goes. A *pending* claim on them can never be answered, so it goes too; a
+    *resolved* one is the attacker's result to acknowledge and stays. Their hunters get a new
+    target (`reassign_targets_away_from`), and the host role passes on if they had it.
+    """
+    leaver = game.players.pop(player_id, None)
+    game.claims.pop(player_id, None)
+    for attacker_id, claim in list(game.claims.items()):
+        if claim.target == player_id and claim.status is ClaimStatus.PENDING:
+            del game.claims[attacker_id]
+    if not game.players:
+        return
+    reassign_targets_away_from(game, player_id, picker, leaver.target_id if leaver else None)
+    if game.host_id == player_id:
+        game.host_id = next(iter(game.players))

@@ -1,9 +1,11 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 
 import { fakeStore, gameState, me } from '../../../testing/game-state';
 import { translocoTesting } from '../../../testing/transloco-testing';
 import { GameStore } from '../../core/services/game-store';
 import { Toast } from '../../core/services/toast';
+import { Dossier } from '../../shared/dossier/dossier';
 import { Game } from './game';
 
 describe('Game screen', () => {
@@ -112,6 +114,29 @@ describe('Game screen', () => {
     expect(button('game.swap')).toBeUndefined();
     button('game.nextMission').click();
     expect(store.acknowledge).toHaveBeenCalled();
+  });
+
+  it('keeps the kill number on the elimination just confirmed until acknowledged', () => {
+    setup(
+      gameState({
+        me: { id: 'h', name: 'H', score: 1, mission: 'm', target_id: 'b' },
+        claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'ok' }],
+      }),
+    );
+    const dossier = fixture.debugElement.query(By.directive(Dossier)).componentInstance as Dossier;
+    expect(dossier.killNo()).toBe(1); // not 2: the confirmed kill is still on screen
+  });
+
+  it('a pending claim of mine shows the waiting card, not a result', () => {
+    setup(
+      gameState({
+        claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'pending' }],
+      }),
+    );
+    store.isPending.set(true);
+    fixture.detectChanges();
+    expect(text()).not.toContain('game.resultNo');
+    expect(text()).toContain('game.waitingFor');
   });
 
   it('after a refusal, offers a new mission', () => {

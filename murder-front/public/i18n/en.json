@@ -89,7 +89,7 @@
     "resultOkLead": "Mission accomplished: +1 point.",
     "nextMission": "Start the next mission",
     "resultNo": "Elimination refused",
-    "resultNoLead": "{{name}} disputes it. Your target stays the same.",
+    "resultNoLead": "Your target disputes it: no point this time.",
     "newMission": "New mission"
   },
   "dossier": {

@@ -10,7 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application._support import get_game_or_404, settle_end
-from src.domain.errors import ClaimNotFound, GameNotRunning, NotTheClaimAttacker
+from src.domain.errors import GameNotRunning, NotTheClaimAttacker
 from src.domain.models import Game, GameStatus
 from src.domain.randomness import Picker
 from src.domain.rules import advance_after_resolution
@@ -35,10 +35,7 @@ class AcknowledgeResolution:
             await self.notifier.publish(game)
         if game.status is not GameStatus.RUNNING:
             raise GameNotRunning(code)
-        if attacker_id not in game.claims:
-            raise ClaimNotFound(attacker_id)
-
-        advance_after_resolution(game, attacker_id, self.picker)  # ClaimNotResolved if pending
+        advance_after_resolution(game, attacker_id, self.picker)  # ClaimNotFound / NotResolved
         await self.repo.save(game)
         await self.notifier.publish(game)
         return game

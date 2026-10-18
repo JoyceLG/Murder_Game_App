@@ -25,7 +25,7 @@ type Confirming = 'swap' | 'end' | null;
           [mission]="m.mission"
           [targetName]="target()?.name ?? '—'"
           [code]="s.code"
-          [killNo]="m.score + 1"
+          [killNo]="m.score + (myResult() === 'ok' ? 0 : 1)"
         />
 
         @if (incoming(); as inc) {
@@ -60,12 +60,7 @@ type Confirming = 'swap' | 'end' | null;
               </button>
             } @else {
               <span class="stamp">{{ 'game.resultNo' | transloco }}</span>
-              <p class="lead">
-                {{
-                  'game.resultNoLead'
-                    | transloco: { name: target()?.name ?? ('game.yourTarget' | transloco) }
-                }}
-              </p>
+              <p class="lead">{{ 'game.resultNoLead' | transloco }}</p>
               <button class="btn" [disabled]="busy()" (click)="acknowledge()">
                 {{ 'game.newMission' | transloco }}
               </button>

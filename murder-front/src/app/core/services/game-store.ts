@@ -153,7 +153,16 @@ export class GameStore {
   async acknowledge(): Promise<GameStateDto | null> {
     const claim = this.myClaim();
     if (!claim || claim.status === 'pending') return null;
-    return this.call((code, auth) => this.api.acknowledge(code, claim.atk, auth));
+    try {
+      return await this.call((code, auth) => this.api.acknowledge(code, claim.atk, auth));
+    } catch (err) {
+      // 404/409: nothing left to acknowledge (already done, or the game ended meanwhile, which
+      // settles every claim). Not an error for the player: just show the current state.
+      const { status } = apiFailure(err);
+      if (status !== 404 && status !== 409) throw err;
+      await this.refresh();
+      return null;
+    }
   }
 
   swap(): Promise<GameStateDto> {
