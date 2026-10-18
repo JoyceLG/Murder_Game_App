@@ -140,7 +140,7 @@ safe. These are cheap to honor now and expensive to retrofit:
 ## Dev workflow (branch-per-issue → PR → review → merge)
 
 Feature work is tracked as GitHub issues (milestone *"Features pré-déploiement mobile"*, currently
-#10–#16). `develop` is the integration branch (the `python-rewrite` branch is legacy — already
+#9–#15). `develop` is the integration branch (the `python-rewrite` branch is legacy — already
 merged via PR #1). For **every** issue:
 
 1. **One branch per issue**, cut from up-to-date `develop`: `feat/<issue-number>-<slug>`
