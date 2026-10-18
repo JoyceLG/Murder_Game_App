@@ -7,7 +7,10 @@ from fastapi.responses import JSONResponse
 
 from src.api.rate_limit import client_key
 from src.domain.errors import (
+    ClaimAlreadyResolved,
+    ClaimAwaitingAck,
     ClaimNotFound,
+    ClaimNotResolved,
     CodeSpaceExhausted,
     ConcurrentUpdate,
     DomainError,
@@ -21,6 +24,7 @@ from src.domain.errors import (
     NoTargetAssigned,
     NotAuthenticated,
     NotEnoughPlayers,
+    NotTheClaimAttacker,
     NotTheClaimTarget,
     NotTheHost,
     PlayerNotFound,
@@ -43,6 +47,10 @@ STATUS_MAP: dict[type[DomainError], int] = {
     NotTheClaimTarget: 403,
     NotAllowedToRemoveMission: 403,
     NotAuthenticated: 401,
+    NotTheClaimAttacker: 403,
+    ClaimAlreadyResolved: 409,
+    ClaimNotResolved: 409,
+    ClaimAwaitingAck: 409,
     ConcurrentUpdate: 409,
     CodeSpaceExhausted: 503,
 }

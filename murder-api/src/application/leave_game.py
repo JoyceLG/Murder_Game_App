@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application._support import get_game_or_404, settle_end
-from src.domain.models import Game, GameStatus
+from src.domain.models import ClaimStatus, Game, GameStatus
 from src.domain.randomness import Picker
 from src.domain.rules import reassign_targets_away_from
 from src.ports.clock import Clock
@@ -38,7 +38,9 @@ class LeaveGame:
         leaver = game.players.pop(player_id, None)
         game.claims.pop(player_id, None)
         for attacker_id, claim in list(game.claims.items()):
-            if claim.target == player_id:
+            # A pending claim on the leaver can never be answered: drop it. A resolved one is
+            # the attacker's result to acknowledge: keep it.
+            if claim.target == player_id and claim.status is ClaimStatus.PENDING:
                 game.claims.pop(attacker_id, None)
 
         if not game.players:

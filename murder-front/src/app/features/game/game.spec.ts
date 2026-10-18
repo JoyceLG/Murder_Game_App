@@ -103,6 +103,26 @@ describe('Game screen', () => {
     expect(text()).toContain('game.quoteOpenChante en canongame.quoteClose');
   });
 
+  it('after a confirmation, shows the success and waits for me to start the next mission', () => {
+    setup(
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'ok' }] }),
+    );
+    expect(text()).toContain('game.resultOk');
+    expect(button('game.kill')).toBeUndefined(); // nothing else until acknowledged
+    expect(button('game.swap')).toBeUndefined();
+    button('game.nextMission').click();
+    expect(store.acknowledge).toHaveBeenCalled();
+  });
+
+  it('after a refusal, offers a new mission', () => {
+    setup(
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'no' }] }),
+    );
+    expect(text()).toContain('game.resultNo');
+    button('game.newMission').click();
+    expect(store.acknowledge).toHaveBeenCalled();
+  });
+
   it('explains when the viewer is no longer part of the game', () => {
     setup(gameState({ me: null }));
     expect(text()).toContain('common.notInGame');

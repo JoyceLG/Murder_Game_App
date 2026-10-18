@@ -6,6 +6,7 @@ import hashlib
 
 from src.domain.errors import GameNotFound
 from src.domain.models import Game, GameStatus
+from src.domain.rules import close_claims
 from src.ports.clock import Clock
 from src.ports.repository import GameRepository
 
@@ -23,11 +24,13 @@ def settle_end(game: Game, clock: Clock) -> bool:
     A running game ends when its clock reaches end_at **or** a player reaches the score cap.
     This is the lazy auto-end that replaces the JS per-second client tick: the truth is
     computed whenever the game is read or mutated, not by a background scheduler.
+    Ending also settles every claim (automatic acknowledgement: nobody is left waiting).
     """
     if game.status is GameStatus.RUNNING and (
         game.is_time_up(clock.now_ms()) or game.score_cap_reached()
     ):
         game.status = GameStatus.ENDED
+        close_claims(game)
         return True
     return False
 

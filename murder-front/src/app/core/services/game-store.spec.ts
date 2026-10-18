@@ -98,6 +98,33 @@ describe('GameStore', () => {
     expect(store.incoming()).toBeNull();
   });
 
+  it('exposes the answer to my claim until I acknowledge it', async () => {
+    const mine = (status: 'pending' | 'ok' | 'no') =>
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status }] });
+    store.apply(mine('pending'));
+    expect(store.myResult()).toBeNull();
+    store.apply({ ...mine('ok'), version: 2 });
+    expect(store.myResult()).toBe('ok');
+    expect(store.isPending()).toBeFalse();
+
+    const done = store.acknowledge();
+    const req = http.expectOne((r) => r.url.endsWith('/games/ABCD/claims/h/ack'));
+    expect(req.request.method).toBe('POST');
+    req.flush(gameState({ version: 3, claims: [] }));
+    await done;
+    expect(store.myResult()).toBeNull();
+  });
+
+  it('has nothing to acknowledge while my claim is pending', async () => {
+    store.apply(
+      gameState({
+        claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'pending' }],
+      }),
+    );
+    expect(await store.acknowledge()).toBeNull();
+    http.expectNone(() => true);
+  });
+
   it('is not host when the viewer is someone else', () => {
     store.apply(gameState({ me: me('b', 'h') }));
     expect(store.isHost()).toBeFalse();

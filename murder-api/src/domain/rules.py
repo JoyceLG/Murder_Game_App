@@ -6,9 +6,14 @@ randomness, so the rules are deterministic under test. No I/O, no framework impo
 
 from __future__ import annotations
 
-from src.domain.errors import PlayerNotFound
+from src.domain.errors import (
+    ClaimAlreadyResolved,
+    ClaimNotFound,
+    ClaimNotResolved,
+    PlayerNotFound,
+)
 from src.domain.missions import MISSION_KEYS, is_catalogue_key
-from src.domain.models import Game, MissionMode, Player
+from src.domain.models import ClaimStatus, Game, MissionMode, Player
 from src.domain.randomness import Picker, pick_mission_excluding
 
 
@@ -108,28 +113,64 @@ def _retarget_after_kill(game: Game, attacker: Player, picker: Picker) -> None:
     attacker.target_id = _least_hunted(game, pool, attacker.id, picker)
 
 
-def resolve_claim(game: Game, attacker_id: str, confirmed: bool, picker: Picker) -> None:
-    """Authoritatively resolve an attacker's elimination claim.
+def mark_resolved(game: Game, attacker_id: str, confirmed: bool) -> None:
+    """The target's answer: the claim becomes OK (+1 point, right away) or NO.
 
-    confirmed -> +1 score, a new target (see `_retarget_after_kill`: != current when possible,
-                 keeping everyone hunted exactly once when possible), and a new mission.
-    refused   -> a new mission only; the target is unchanged.
-    The claim is consumed (removed) in both cases.
+    Nothing else changes yet — no new target, no new mission. The claim stays until the attacker
+    acknowledges the result (`advance_after_resolution`), so they see what happened first.
+    The score rises at confirmation time, so a score cap can end the game immediately.
 
-    NB: in the JS version this ran in the *attacker's* browser ("client-side scoring trust").
+    NB: in the JS version scoring ran in the *attacker's* browser ("client-side scoring trust").
     Here it is invoked by the ConfirmClaim use case, triggered by the target — server-side.
     """
     attacker = game.players.get(attacker_id)
     if attacker is None:
         raise PlayerNotFound(attacker_id)
+    claim = game.claims.get(attacker_id)
+    if claim is None:
+        raise ClaimNotFound(attacker_id)
+    if claim.status is not ClaimStatus.PENDING:
+        raise ClaimAlreadyResolved(attacker_id)
 
-    missions = effective_missions(game)
+    claim.status = ClaimStatus.OK if confirmed else ClaimStatus.NO
     if confirmed:
         attacker.score += 1
-        _retarget_after_kill(game, attacker, picker)
-    attacker.mission = pick_mission_excluding(picker, attacker.mission, missions)
 
-    game.claims.pop(attacker_id, None)
+
+def advance_after_resolution(game: Game, attacker_id: str, picker: Picker) -> None:
+    """The attacker acknowledged the result: deal what comes next and consume the claim.
+
+    OK -> a new target (see `_retarget_after_kill`: != current when possible, keeping everyone
+          hunted exactly once when possible) and a new mission.
+    NO -> a new mission only; the target is unchanged.
+    """
+    attacker = game.players.get(attacker_id)
+    if attacker is None:
+        raise PlayerNotFound(attacker_id)
+    claim = game.claims.get(attacker_id)
+    if claim is None:
+        raise ClaimNotFound(attacker_id)
+    if claim.status is ClaimStatus.PENDING:
+        raise ClaimNotResolved(attacker_id)
+
+    if claim.status is ClaimStatus.OK:
+        _retarget_after_kill(game, attacker, picker)
+    attacker.mission = pick_mission_excluding(picker, attacker.mission, effective_missions(game))
+    del game.claims[attacker_id]
+
+
+def close_claims(game: Game) -> None:
+    """The game is over: every claim is settled as is (scores already counted, nothing to deal).
+
+    This is the automatic acknowledgement at the end, so no player is left waiting on a claim.
+    """
+    game.claims.clear()
+
+
+def awaiting_ack(game: Game, player_id: str) -> bool:
+    """True while the player has a resolved claim they have not acknowledged yet."""
+    claim = game.claims.get(player_id)
+    return claim is not None and claim.status is not ClaimStatus.PENDING
 
 
 def reassign_targets_away_from(

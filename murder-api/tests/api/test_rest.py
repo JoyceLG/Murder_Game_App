@@ -104,6 +104,84 @@ def test_confirm_by_non_target_returns_403(client):
     assert response.json()["error"] == "NotTheClaimTarget"
 
 
+# --- #14: the attacker acknowledges the result before the next mission ---------------
+
+
+def _claimed(client):
+    """Two players, started; Alice (whose target is necessarily Bob) has claimed."""
+    code, alice = new_game(client, "Alice")
+    bob = join(client, code, "Bob")
+    start(client, code, alice)
+    assert client.post(f"/games/{code}/claims", headers=alice.headers).status_code == 201
+    return code, alice, bob
+
+
+def _answer(client, code, alice, bob, confirmed):
+    return client.post(
+        f"/games/{code}/claims/{alice.id}/confirm",
+        json={"confirmed": confirmed},
+        headers=bob.headers,
+    )
+
+
+def test_attacker_sees_the_confirmation_then_acknowledges_it(client):
+    code, alice, bob = _claimed(client)
+    before = state_for(client, code, alice)["me"]
+
+    _answer(client, code, alice, bob, True)
+    waiting = state_for(client, code, alice)
+    assert waiting["me"]["score"] == 1
+    assert waiting["me"]["mission"] == before["mission"]  # nothing dealt yet
+    assert [c["status"] for c in waiting["claims"]] == ["ok"]
+
+    acked = client.post(f"/games/{code}/claims/{alice.id}/ack", headers=alice.headers)
+    assert acked.status_code == 200
+    assert acked.json()["claims"] == []
+    assert acked.json()["me"]["mission"] != before["mission"]
+    assert acked.json()["me"]["score"] == 1
+
+
+def test_attacker_sees_the_refusal_then_acknowledges_it(client):
+    code, alice, bob = _claimed(client)
+    _answer(client, code, alice, bob, False)
+    assert [c["status"] for c in state_for(client, code, alice)["claims"]] == ["no"]
+    acked = client.post(f"/games/{code}/claims/{alice.id}/ack", headers=alice.headers)
+    assert acked.status_code == 200
+    assert acked.json()["me"]["score"] == 0
+
+
+def test_only_the_attacker_may_acknowledge(client):
+    code, alice, bob = _claimed(client)
+    _answer(client, code, alice, bob, True)
+    response = client.post(f"/games/{code}/claims/{alice.id}/ack", headers=bob.headers)
+    assert response.status_code == 403
+    assert response.json()["error"] == "NotTheClaimAttacker"
+
+
+def test_acknowledging_a_pending_claim_is_refused(client):
+    code, alice, _ = _claimed(client)
+    response = client.post(f"/games/{code}/claims/{alice.id}/ack", headers=alice.headers)
+    assert response.status_code == 409
+    assert response.json()["error"] == "ClaimNotResolved"
+
+
+def test_answering_twice_is_refused(client):
+    code, alice, bob = _claimed(client)
+    _answer(client, code, alice, bob, True)
+    response = _answer(client, code, alice, bob, True)
+    assert response.status_code == 409
+    assert response.json()["error"] == "ClaimAlreadyResolved"
+
+
+def test_no_new_claim_or_swap_before_acknowledging(client):
+    code, alice, bob = _claimed(client)
+    _answer(client, code, alice, bob, True)
+    for path in ("claims", "swap-mission"):
+        response = client.post(f"/games/{code}/{path}", headers=alice.headers)
+        assert response.status_code == 409, path
+        assert response.json()["error"] == "ClaimAwaitingAck"
+
+
 # --- B2: the public id is not a credential ---------------------------------------------
 
 

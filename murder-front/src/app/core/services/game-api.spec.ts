@@ -75,6 +75,13 @@ describe('GameApi', () => {
       '/games/ABCD/claims/atk/confirm',
       { confirmed: true },
     ],
+    [
+      'acknowledge',
+      (a) => a.acknowledge('ABCD', 'p1', AUTH),
+      'POST',
+      '/games/ABCD/claims/p1/ack',
+      {},
+    ],
     ['swap', (a) => a.swap('ABCD', AUTH), 'POST', '/games/ABCD/swap-mission', {}],
     ['end', (a) => a.end('ABCD', AUTH), 'POST', '/games/ABCD/end', {}],
     ['leave', (a) => a.leave('ABCD', AUTH), 'DELETE', '/games/ABCD/players/me', null],

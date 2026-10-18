@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from src.application._support import get_game_or_404, settle_end
 from src.domain.errors import GameNotRunning, NotTheHost
 from src.domain.models import Game, GameStatus
+from src.domain.rules import close_claims
 from src.ports.clock import Clock
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
@@ -28,6 +29,7 @@ class EndGame:
         if game.status is not GameStatus.RUNNING:
             raise GameNotRunning(code)
         game.status = GameStatus.ENDED
+        close_claims(game)
         await self.repo.save(game)
         await self.notifier.publish(game)
         return game

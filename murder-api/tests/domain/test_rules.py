@@ -3,18 +3,33 @@ from collections import Counter
 
 import pytest
 
-from src.domain.errors import PlayerNotFound
+from src.domain.errors import (
+    ClaimAlreadyResolved,
+    ClaimNotFound,
+    ClaimNotResolved,
+    PlayerNotFound,
+)
 from src.domain.missions import MISSION_KEYS
+from src.domain.models import ClaimStatus
 from src.domain.randomness import RandomPicker
 from src.domain.rules import (
+    advance_after_resolution,
     assign_targets,
+    awaiting_ack,
     clamp_duration_min,
+    close_claims,
+    mark_resolved,
     reassign_targets_away_from,
-    resolve_claim,
     swap_mission,
 )
 from tests.builders import add_claim, make_game, running_game
 from tests.doubles import FirstPicker, SequencePicker
+
+
+def resolve_claim(game, attacker_id, confirmed, picker):
+    """The full cycle: the target answers, then the attacker acknowledges."""
+    mark_resolved(game, attacker_id, confirmed)
+    advance_after_resolution(game, attacker_id, picker)
 
 
 def _hunt_counts(game):
@@ -274,3 +289,100 @@ def test_clamp_duration_within_range_is_unchanged():
 
 def test_clamp_duration_truncates_float():
     assert clamp_duration_min(15.9) == 15
+
+
+# --- mark_resolved / advance_after_resolution (attacker acknowledgement) ---------------
+
+
+def test_confirmation_scores_right_away_but_deals_nothing_yet():
+    game = running_game(["alice", "bob", "carol"], FirstPicker())
+    target, mission = game.players["alice"].target_id, game.players["alice"].mission
+    add_claim(game, "alice")
+
+    mark_resolved(game, "alice", confirmed=True)
+
+    assert game.players["alice"].score == 1
+    assert (game.players["alice"].target_id, game.players["alice"].mission) == (target, mission)
+    assert game.claims["alice"].status is ClaimStatus.OK
+    assert awaiting_ack(game, "alice")
+
+
+def test_refusal_keeps_score_target_and_mission_until_acknowledged():
+    game = running_game(["alice", "bob"], FirstPicker())
+    mission = game.players["alice"].mission
+    add_claim(game, "alice")
+
+    mark_resolved(game, "alice", confirmed=False)
+
+    assert game.players["alice"].score == 0
+    assert game.players["alice"].mission == mission
+    assert game.claims["alice"].status is ClaimStatus.NO
+
+
+def test_a_claim_is_answered_only_once():
+    game = running_game(["alice", "bob"], FirstPicker())
+    add_claim(game, "alice")
+    mark_resolved(game, "alice", confirmed=True)
+    with pytest.raises(ClaimAlreadyResolved):
+        mark_resolved(game, "alice", confirmed=True)
+    assert game.players["alice"].score == 1
+
+
+def test_answering_a_missing_claim_raises():
+    game = running_game(["alice", "bob"], FirstPicker())
+    with pytest.raises(ClaimNotFound):
+        mark_resolved(game, "alice", confirmed=True)
+
+
+def test_acknowledging_a_confirmation_deals_target_and_mission_and_consumes_the_claim():
+    game = running_game(["a", "b", "c", "d"], FirstPicker())  # a -> b -> c -> d -> a
+    old_mission = game.players["a"].mission
+    add_claim(game, "a")
+    mark_resolved(game, "a", confirmed=True)
+
+    advance_after_resolution(game, "a", FirstPicker())
+
+    assert game.players["a"].target_id == "d"  # ring-preserving swap with c
+    assert game.players["a"].mission != old_mission
+    assert "a" not in game.claims
+    assert not awaiting_ack(game, "a")
+
+
+def test_acknowledging_a_refusal_deals_a_mission_only():
+    game = running_game(["a", "b", "c"], FirstPicker())
+    target, old_mission = game.players["a"].target_id, game.players["a"].mission
+    add_claim(game, "a")
+    mark_resolved(game, "a", confirmed=False)
+
+    advance_after_resolution(game, "a", FirstPicker())
+
+    assert game.players["a"].target_id == target
+    assert game.players["a"].mission != old_mission
+    assert game.players["a"].score == 0
+    assert "a" not in game.claims
+
+
+def test_nothing_to_acknowledge_while_pending_or_without_claim():
+    game = running_game(["a", "b"], FirstPicker())
+    with pytest.raises(ClaimNotFound):
+        advance_after_resolution(game, "a", FirstPicker())
+    add_claim(game, "a")
+    with pytest.raises(ClaimNotResolved):
+        advance_after_resolution(game, "a", FirstPicker())
+    assert not awaiting_ack(game, "a")  # pending is not "awaiting ack"
+
+
+def test_advance_for_unknown_attacker_raises():
+    game = running_game(["a", "b"], FirstPicker())
+    with pytest.raises(PlayerNotFound):
+        advance_after_resolution(game, "ghost", FirstPicker())
+
+
+def test_close_claims_settles_everything_at_the_end():
+    game = running_game(["a", "b", "c"], FirstPicker())
+    add_claim(game, "a")
+    add_claim(game, "b")
+    mark_resolved(game, "a", confirmed=True)
+    close_claims(game)
+    assert game.claims == {}
+    assert game.players["a"].score == 1  # already counted

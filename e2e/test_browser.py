@@ -64,6 +64,12 @@ def test_two_agents_play_a_full_game(browser, browser_context_args, base_url):
     guest.get_by_role("button", name="Confirmer").click()
     expect(_score(host)).to_have_text("1")
 
+    # The host sees the success first, then starts the next mission themselves
+    expect(host.get_by_text("Élimination confirmée")).to_be_visible()
+    expect(host.get_by_role("button", name="J'ai éliminé ma cible")).to_be_hidden()
+    host.get_by_role("button", name="Lancer la prochaine mission").click()
+    expect(host.get_by_role("button", name="J'ai éliminé ma cible")).to_be_visible()
+
     # Swapping a mission asks first (it costs a point); cancelling costs nothing
     host.get_by_role("button", name=re.compile("Changer de mission")).click()
     expect(host.get_by_text("Changer de mission te coûte 1 point.")).to_be_visible()

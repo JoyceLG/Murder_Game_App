@@ -48,6 +48,7 @@ export function fakeStore(state: GameStateDto | null = gameState()) {
     'removeMission',
     'claimKill',
     'confirm',
+    'acknowledge',
     'swap',
     'end',
     'leave',
@@ -66,6 +67,10 @@ export function fakeStore(state: GameStateDto | null = gameState()) {
     myRank: signal(1),
     incoming: signal(state?.claims.find((c) => c.target === state?.me?.id) ?? null),
     isPending: signal(false),
+    myResult: signal<'ok' | 'no' | null>(
+      (state?.claims.find((c) => c.atk === state?.me?.id)?.status as 'ok' | 'no' | undefined) ??
+        null,
+    ),
     isHost: signal(!!state?.me && state.host_id === state.me.id),
     remaining: signal(90),
     live: signal('online'),

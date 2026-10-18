@@ -89,6 +89,16 @@ async def test_leave_game_drops_claims_targeting_the_leaver(repo, clock, picker,
     assert "h" not in result.claims
 
 
+async def test_leaving_keeps_a_resolved_claim_for_the_attacker_to_acknowledge(
+    repo, clock, picker, notifier
+):
+    game = make_running(clock, picker)  # ring h -> p2 -> p3 -> h
+    game.claims["h"] = Claim(atk="h", atk_name="H", target="p2", mission="m", status=ClaimStatus.OK)
+    await repo.save(game)
+    result = await _leave(repo, clock, picker, notifier).execute("ABCD", "p2")
+    assert result.claims["h"].status is ClaimStatus.OK
+
+
 async def test_leave_an_ended_game_keeps_the_player_in_the_final_ranking(
     repo, clock, picker, notifier
 ):

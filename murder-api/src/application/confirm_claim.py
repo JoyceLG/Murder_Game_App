@@ -1,8 +1,9 @@
 """Use case: the TARGET confirms or denies a claim — the server-side authoritative resolution.
 
 This is the centerpiece of the migration: in legacy-js the attacker's own browser resolved its
-claim ("client-side scoring trust"). Here only the claim's target may confirm/deny, and the
-scoring/reassignment happens on the server.
+claim ("client-side scoring trust"). Here only the claim's target may confirm/deny, and scoring
+happens on the server. The claim then waits for the attacker's acknowledgement
+(AcknowledgeResolution), which deals their next target/mission.
 """
 
 from __future__ import annotations
@@ -12,8 +13,7 @@ from dataclasses import dataclass
 from src.application._support import get_game_or_404, settle_end
 from src.domain.errors import ClaimNotFound, GameNotRunning, NotTheClaimTarget
 from src.domain.models import Game, GameStatus
-from src.domain.randomness import Picker
-from src.domain.rules import resolve_claim
+from src.domain.rules import mark_resolved
 from src.ports.clock import Clock
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
@@ -23,7 +23,6 @@ from src.ports.repository import GameRepository
 class ConfirmClaim:
     repo: GameRepository
     clock: Clock
-    picker: Picker
     notifier: RealtimeNotifier
 
     async def execute(
@@ -41,7 +40,7 @@ class ConfirmClaim:
         if claim.target != confirmer_id:
             raise NotTheClaimTarget()
 
-        resolve_claim(game, attacker_id, confirmed, self.picker)
+        mark_resolved(game, attacker_id, confirmed)  # ClaimAlreadyResolved if answered before
         # A confirmed claim may have pushed the attacker to the score cap — end the game now so
         # the published state already reflects ENDED (lazy end, evaluated after scoring).
         settle_end(game, self.clock)

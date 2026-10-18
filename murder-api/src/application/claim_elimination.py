@@ -5,8 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application._support import get_game_or_404, settle_end
-from src.domain.errors import GameNotRunning, NoTargetAssigned, PlayerNotFound
+from src.domain.errors import ClaimAwaitingAck, GameNotRunning, NoTargetAssigned, PlayerNotFound
 from src.domain.models import Claim, ClaimStatus, GameStatus
+from src.domain.rules import awaiting_ack
 from src.ports.clock import Clock
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
@@ -28,6 +29,8 @@ class ClaimElimination:
             raise PlayerNotFound(attacker_id)
         if not attacker.target_id:
             raise NoTargetAssigned()
+        if awaiting_ack(game, attacker_id):  # see the last result first
+            raise ClaimAwaitingAck()
 
         claim = Claim(
             atk=attacker_id,

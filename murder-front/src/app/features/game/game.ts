@@ -50,7 +50,28 @@ type Confirming = 'swap' | 'end' | null;
           </div>
         }
 
-        @if (isPending()) {
+        @if (myResult(); as result) {
+          <div class="card result" [class.ok]="result === 'ok'" role="status">
+            @if (result === 'ok') {
+              <span class="stamp">{{ 'game.resultOk' | transloco }}</span>
+              <p class="lead">{{ 'game.resultOkLead' | transloco }}</p>
+              <button class="btn primary" [disabled]="busy()" (click)="acknowledge()">
+                {{ 'game.nextMission' | transloco }}
+              </button>
+            } @else {
+              <span class="stamp">{{ 'game.resultNo' | transloco }}</span>
+              <p class="lead">
+                {{
+                  'game.resultNoLead'
+                    | transloco: { name: target()?.name ?? ('game.yourTarget' | transloco) }
+                }}
+              </p>
+              <button class="btn" [disabled]="busy()" (click)="acknowledge()">
+                {{ 'game.newMission' | transloco }}
+              </button>
+            }
+          </div>
+        } @else if (isPending()) {
           <div class="card">
             <div class="pending" role="status">
               <span class="pulse"></span>
@@ -132,6 +153,7 @@ export class Game {
   readonly myRank = this.store.myRank;
   readonly incoming = this.store.incoming;
   readonly isPending = this.store.isPending;
+  readonly myResult = this.store.myResult;
   readonly isHost = this.store.isHost;
   readonly ranking = this.store.ranking;
 
@@ -141,6 +163,10 @@ export class Game {
 
   kill(): Promise<void> {
     return this.run(() => this.store.claimKill(), 'game.claimFailed');
+  }
+
+  acknowledge(): Promise<void> {
+    return this.run(() => this.store.acknowledge());
   }
 
   swap(): Promise<void> {
