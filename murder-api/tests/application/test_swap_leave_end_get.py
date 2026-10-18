@@ -218,3 +218,11 @@ async def test_last_player_standing_in_a_running_game_sees_the_end(repo, clock, 
     assert result.status is GameStatus.ENDED
     assert (await repo.get("ABCD")).status is GameStatus.ENDED
     assert notifier.published[-1].status is GameStatus.ENDED
+
+
+async def test_reading_a_running_game_left_with_one_player_ends_it(repo, clock, picker, notifier):
+    game = make_running(clock, picker, player_ids=("h", "p2"))
+    del game.players["p2"]  # left before the "last player standing" rule existed
+    await repo.save(game)
+    result = await GetGame(repo=repo, clock=clock, notifier=notifier).execute("ABCD")
+    assert result.status is GameStatus.ENDED

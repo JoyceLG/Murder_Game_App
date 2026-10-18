@@ -57,6 +57,27 @@ describe('Lobby screen', () => {
     expect(lobby.maxScore).toBe(5); // back to the current goal
   });
 
+  it('refuses pasted text that is not a number instead of clearing the goal', async () => {
+    setup(gameState({ status: 'lobby', end_at: 0, max_score: 5 }));
+    const lobby = fixture.componentInstance;
+    lobby.maxScore = null; // what the number input reports for "abc"
+    await lobby.applyConfig({ validity: { badInput: true } });
+    expect(toast.show).toHaveBeenCalledWith('lobby.maxScoreInvalid', 'bad');
+    expect(store.updateConfig).not.toHaveBeenCalled();
+    expect(lobby.maxScore as number | null).toBe(5);
+  });
+
+  it('blocks signs in every number field of the lobby', () => {
+    setup();
+    const inputs = (fixture.nativeElement as HTMLElement).querySelectorAll('input[type=number]');
+    expect(inputs.length).toBe(3);
+    for (const input of Array.from(inputs)) {
+      const event = new KeyboardEvent('keydown', { key: '-', cancelable: true });
+      input.dispatchEvent(event);
+      expect(event.defaultPrevented).toBeTrue();
+    }
+  });
+
   it('still allows clearing the goal (no limit)', async () => {
     setup();
     const lobby = fixture.componentInstance;

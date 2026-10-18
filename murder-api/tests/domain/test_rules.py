@@ -8,25 +8,28 @@ from src.domain.errors import (
     ClaimAwaitingAck,
     ClaimNotFound,
     ClaimNotResolved,
+    InvalidGameConfig,
     MustAnswerClaimFirst,
     NoTargetAssigned,
     PlayerNotFound,
     SwapNotAllowed,
 )
 from src.domain.missions import MISSION_KEYS
-from src.domain.models import ClaimStatus, GameStatus
+from src.domain.models import ClaimStatus, GameStatus, MissionMode
 from src.domain.randomness import RandomPicker
 from src.domain.rules import (
     advance_after_resolution,
     assign_targets,
     awaiting_ack,
     clamp_duration_min,
+    configure_game,
     finish,
     has_incoming_claim,
     mark_resolved,
     open_claim,
     reassign_targets_away_from,
     remove_player,
+    should_end,
     swap_cost,
     swap_mission,
 )
@@ -566,3 +569,32 @@ def test_remove_last_player_leaves_an_empty_game():
     game = make_game(["solo"])
     remove_player(game, "solo", FirstPicker())
     assert game.players == {}
+
+
+def test_should_end_covers_clock_score_goal_and_lone_player():
+    game = running_game(["a", "b"], FirstPicker())
+    game.end_at = 1_000
+    assert not should_end(game, now_ms=999)
+    assert should_end(game, now_ms=1_000)
+    game.max_score = 1
+    game.players["a"].score = 1
+    assert should_end(game, now_ms=0)
+    lone = running_game(["a", "b"], FirstPicker())
+    del lone.players["b"]  # e.g. a game left with one player before this rule existed
+    assert should_end(lone, now_ms=0)
+    lone.status = GameStatus.LOBBY
+    assert not should_end(lone, now_ms=0)
+
+
+def test_configure_game_validates_the_goal_and_the_cap():
+    game = make_game(["h", "p2", "p3"])
+    configure_game(game, max_players=4, max_score=3, mission_mode=MissionMode.REPLACE)
+    assert (game.max_players, game.max_score, game.mission_mode) == (4, 3, MissionMode.REPLACE)
+    configure_game(game, max_players=4, max_score=None, mission_mode=MissionMode.AUGMENT)
+    assert game.max_score is None
+    for players, goal in ((4, 0), (4, -1), (2, None)):
+        with pytest.raises(InvalidGameConfig):
+            configure_game(
+                game, max_players=players, max_score=goal, mission_mode=MissionMode.AUGMENT
+            )
+    assert game.max_players == 4

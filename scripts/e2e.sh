@@ -60,9 +60,14 @@ fi
 # The production build of the front, served by `ng serve` with a proxy for /games (REST and
 # WebSocket) and /health: same origin and relative URLs, like behind nginx. Ports are free
 # ones by default, so a dev server or a running compose stack (8000/8080/4200) is no problem.
-free_port() { "$PY" -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1])'; }
-API_PORT="${E2E_API_PORT:-$(free_port)}"
-APP_PORT="${E2E_APP_PORT:-$(free_port)}"
+# Two distinct free ports, picked while both sockets are held (so they cannot be the same).
+read -r FREE_A FREE_B < <("$PY" -c '
+import socket
+a, b = socket.socket(), socket.socket()
+a.bind(("127.0.0.1", 0)); b.bind(("127.0.0.1", 0))
+print(a.getsockname()[1], b.getsockname()[1])')
+API_PORT="${E2E_API_PORT:-$FREE_A}"
+APP_PORT="${E2E_APP_PORT:-$FREE_B}"
 
 PIDS=()
 cleanup() {

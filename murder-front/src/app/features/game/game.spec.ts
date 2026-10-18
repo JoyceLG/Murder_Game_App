@@ -172,7 +172,25 @@ describe('Game screen', () => {
   it('locks the swap once the free one is used at 0 points, and says why', () => {
     setup(gameState({ me: me('h', 'b', 0, null) }));
     expect(button('game.swap').disabled).toBeTrue();
+    expect(button('game.swap').textContent).not.toContain('game.swapFree'); // no "free" on a lock
+    expect(button('game.swap').textContent).not.toContain('game.swapCost');
     expect(text()).toContain('game.swapLocked');
+  });
+
+  it('keeps showing my own pending claim when a claim on me arrives', () => {
+    setup(
+      gameState({
+        claims: [
+          { atk: 'h', atk_name: 'H', target: 'b', mission: 'x', status: 'pending' },
+          { atk: 'b', atk_name: 'B', target: 'h', mission: 'y', status: 'pending' },
+        ],
+      }),
+    );
+    store.isPending.set(true);
+    fixture.detectChanges();
+    expect(text()).toContain('game.waitingFor');
+    expect(button('game.confirm')).toBeDefined();
+    expect(button('game.kill')).toBeUndefined();
   });
 
   it('an elimination attempt on me blocks claiming and swapping until I answer', () => {

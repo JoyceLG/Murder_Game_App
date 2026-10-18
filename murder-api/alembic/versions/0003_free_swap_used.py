@@ -1,4 +1,4 @@
-"""players.free_swap_used: the one free mission swap at 0 points (#20)
+"""players.free_swap_used: the one free mission swap at 0 points; no negative score (#20)
 
 Revision ID: 0003_free_swap
 Revises: 0002_version_token
@@ -27,6 +27,8 @@ def upgrade() -> None:
         "players",
         sa.Column("free_swap_used", sa.Boolean(), nullable=False, server_default=sa.false()),
     )
+    # Scores no longer go below 0 (#20): bring games running across the upgrade in line.
+    op.execute(sa.text("UPDATE players SET score = 0 WHERE score < 0"))
     # The ORM always writes the column; drop the default so the schema matches the model.
     with op.batch_alter_table("players") as batch:
         batch.alter_column("free_swap_used", server_default=None)

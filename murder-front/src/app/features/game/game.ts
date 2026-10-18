@@ -66,8 +66,6 @@ type Confirming = 'swap' | 'end' | null;
               </button>
             }
           </div>
-        } @else if (incoming()) {
-          <p class="foot center">{{ 'game.answerFirst' | transloco }}</p>
         } @else if (isPending()) {
           <div class="card">
             <div class="pending" role="status">
@@ -78,17 +76,19 @@ type Confirming = 'swap' | 'end' | null;
               }}
             </div>
           </div>
+        } @else if (incoming()) {
+          <p class="foot center">{{ 'game.answerFirst' | transloco }}</p>
         } @else if (confirming() === 'swap') {
           <div class="card">
             <p class="lead" style="margin-top: 0">
-              {{ (m.swap_cost ? 'game.swapConfirm' : 'game.swapConfirmFree') | transloco }}
+              {{ (m.swap_cost === 0 ? 'game.swapConfirmFree' : 'game.swapConfirm') | transloco }}
             </p>
             <div class="btn-row">
               <button class="btn ghost" (click)="confirming.set(null)">
                 {{ 'common.cancel' | transloco }}
               </button>
               <button class="btn danger" [disabled]="busy()" (click)="swap()">
-                {{ (m.swap_cost ? 'game.swapYes' : 'game.swapYesFree') | transloco }}
+                {{ (m.swap_cost === 0 ? 'game.swapYesFree' : 'game.swapYes') | transloco }}
               </button>
             </div>
           </div>
@@ -102,9 +102,12 @@ type Confirming = 'swap' | 'end' | null;
               [disabled]="busy() || m.swap_cost === null"
               (click)="confirming.set('swap')"
             >
-              {{ 'game.swap' | transloco }}&nbsp;&nbsp;<span class="muted">{{
-                (m.swap_cost ? 'game.swapCost' : 'game.swapFree') | transloco
-              }}</span>
+              {{ 'game.swap' | transloco }}
+              @if (m.swap_cost !== null) {
+                &nbsp;&nbsp;<span class="muted">{{
+                  (m.swap_cost === 0 ? 'game.swapFree' : 'game.swapCost') | transloco
+                }}</span>
+              }
             </button>
             @if (m.swap_cost === null) {
               <p class="foot">{{ 'game.swapLocked' | transloco }}</p>

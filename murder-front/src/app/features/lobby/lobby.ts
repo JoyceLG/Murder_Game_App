@@ -36,7 +36,14 @@ import { Seal } from '../../shared/seal/seal';
             <h2>{{ 'lobby.settings' | transloco }}</h2>
             <label class="field">
               <span class="lbl">{{ 'lobby.duration' | transloco }}</span>
-              <input type="number" min="1" max="240" inputmode="numeric" [(ngModel)]="duration" />
+              <input
+                type="number"
+                min="1"
+                max="240"
+                inputmode="numeric"
+                [(ngModel)]="duration"
+                (keydown)="blockSign($event)"
+              />
             </label>
             <label class="field">
               <span class="lbl">{{ 'lobby.maxPlayers' | transloco }}</span>
@@ -46,6 +53,7 @@ import { Seal } from '../../shared/seal/seal';
                 max="12"
                 inputmode="numeric"
                 [(ngModel)]="maxPlayers"
+                (keydown)="blockSign($event)"
                 (change)="applyConfig()"
               />
             </label>
@@ -59,7 +67,8 @@ import { Seal } from '../../shared/seal/seal';
                 [placeholder]="'lobby.noLimit' | transloco"
                 [(ngModel)]="maxScore"
                 (keydown)="blockSign($event)"
-                (change)="applyConfig()"
+                (change)="applyConfig(scoreField)"
+                #scoreField
               />
             </label>
             <button
@@ -211,12 +220,13 @@ export class Lobby {
     void this.applyConfig();
   }
 
-  async applyConfig(): Promise<void> {
+  /** `scoreField`: the goal input, to tell "left empty" from "not a number" (pasted text). */
+  async applyConfig(scoreField?: { validity: { badInput: boolean } }): Promise<void> {
     const players = Math.max(2, Math.min(12, Number(this.maxPlayers) || 12));
     this.maxPlayers = players;
     const typed =
       this.maxScore === null || String(this.maxScore) === '' ? null : Number(this.maxScore);
-    if (typed !== null && !(typed >= 1)) {
+    if (scoreField?.validity.badInput || (typed !== null && !(typed >= 1))) {
       // 0 or fewer points would end the game at once: refuse and keep the current goal.
       this.toast.show(this.i18n.translate('lobby.maxScoreInvalid'), 'bad');
       this.maxScore = this.state()?.max_score ?? null;

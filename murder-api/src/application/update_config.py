@@ -9,8 +9,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from src.application._support import get_game_or_404
-from src.domain.errors import GameAlreadyStarted, InvalidGameConfig, NotTheHost
+from src.domain.errors import GameAlreadyStarted, NotTheHost
 from src.domain.models import Game, GameStatus, MissionMode
+from src.domain.rules import configure_game
 from src.ports.notifier import RealtimeNotifier
 from src.ports.repository import GameRepository
 
@@ -33,15 +34,7 @@ class UpdateGameConfig:
             raise NotTheHost()
         if game.status is not GameStatus.LOBBY:
             raise GameAlreadyStarted(code)
-        if max_score is not None and max_score < 1:
-            raise InvalidGameConfig()  # a goal of 0 or fewer points would end the game at once
-        if max_players < len(game.players):
-            # Can't set the cap below the players already in the lobby.
-            raise InvalidGameConfig()
-
-        game.max_players = max_players
-        game.max_score = max_score
-        game.mission_mode = mission_mode
+        configure_game(game, max_players, max_score, mission_mode)  # InvalidGameConfig
         await self.repo.save(game)
         await self.notifier.publish(game)
         return game

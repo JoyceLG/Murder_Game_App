@@ -11,6 +11,7 @@ from src.domain.errors import (
     ClaimAwaitingAck,
     ClaimNotFound,
     ClaimNotResolved,
+    InvalidGameConfig,
     MustAnswerClaimFirst,
     NoTargetAssigned,
     PlayerNotFound,
@@ -19,6 +20,32 @@ from src.domain.errors import (
 from src.domain.missions import MISSION_KEYS, is_catalogue_key
 from src.domain.models import Claim, ClaimStatus, Game, GameStatus, MissionMode, Player
 from src.domain.randomness import Picker, pick_mission_excluding
+
+
+def configure_game(
+    game: Game, max_players: int, max_score: int | None, mission_mode: MissionMode
+) -> None:
+    """The host's lobby settings. The player cap cannot go below the players already in the
+    lobby; a score goal, when set, is at least 1 point (0 or fewer would end the game at once)."""
+    if max_score is not None and max_score < 1:
+        raise InvalidGameConfig()
+    if max_players < len(game.players):
+        raise InvalidGameConfig()
+    game.max_players = max_players
+    game.max_score = max_score
+    game.mission_mode = mission_mode
+
+
+def _too_few_players(game: Game) -> bool:
+    return len(game.players) < 2  # nobody left to hunt
+
+
+def should_end(game: Game, now_ms: int) -> bool:
+    """A running game is over when its clock ran out, a player reached the score goal, or
+    fewer than two players are left (nobody to hunt)."""
+    return game.status is GameStatus.RUNNING and (
+        game.is_time_up(now_ms) or game.score_cap_reached() or _too_few_players(game)
+    )
 
 
 def clamp_duration_min(minutes: int) -> int:
@@ -290,5 +317,5 @@ def remove_player(game: Game, player_id: str, picker: Picker) -> None:
     reassign_targets_away_from(game, player_id, picker, leaver.target_id if leaver else None)
     if game.host_id == player_id:
         game.host_id = next(iter(game.players))
-    if game.status is GameStatus.RUNNING and len(game.players) == 1:
-        finish(game)  # nobody left to hunt: the last player standing ends it
+    if game.status is GameStatus.RUNNING and _too_few_players(game):
+        finish(game)  # the last player standing ends it (same rule as `should_end`)
