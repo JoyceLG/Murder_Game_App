@@ -4,28 +4,19 @@ import re
 
 import httpx
 import pytest
-from playwright.sync_api import Browser, Page, expect
+from playwright.sync_api import Page, expect
 
 pytestmark = pytest.mark.browser
-
-
-def _agent(
-    browser: Browser, browser_context_args: dict, errors: list[str], locale: str = "fr-FR"
-) -> Page:
-    page = browser.new_context(**{**browser_context_args, "locale": locale}).new_page()
-    page.on("pageerror", lambda exc: errors.append(f"pageerror: {exc}"))
-    page.on("console", lambda m: m.type == "error" and errors.append(f"console: {m.text}"))
-    return page
 
 
 def _score(page: Page):
     return page.locator(".hud .stat").nth(1).locator(".val")
 
 
-def test_two_agents_play_a_full_game(browser, browser_context_args, base_url):
-    errors: list[str] = []
-    host = _agent(browser, browser_context_args, errors)
-    guest = _agent(browser, browser_context_args, errors)
+def test_two_agents_play_a_full_game(agents, base_url):
+    errors = agents.errors
+    host = agents.new()
+    guest = agents.new()
 
     # Host creates the game
     host.goto(f"{base_url}/")
@@ -105,12 +96,10 @@ def _catalogue(base_url: str, lang: str) -> set[str]:
     return set(texts)
 
 
-def test_each_agent_reads_default_missions_in_their_own_language(
-    browser, browser_context_args, base_url
-):
-    errors: list[str] = []
-    french = _agent(browser, browser_context_args, errors)
-    english = _agent(browser, browser_context_args, errors, locale="en-US")
+def test_each_agent_reads_default_missions_in_their_own_language(agents, base_url):
+    errors = agents.errors
+    french = agents.new()
+    english = agents.new(locale="en-US")
 
     french.goto(f"{base_url}/")
     french.get_by_placeholder("Ex. Corbeau").fill("Hôte")
@@ -144,8 +133,8 @@ def test_unknown_code_is_explained(page: Page, base_url):
     expect(page.locator("#toast")).to_have_text("Aucune partie pour ce code")
 
 
-def test_english_ui(browser, browser_context_args, base_url):
-    page = browser.new_context(**{**browser_context_args, "locale": "en-US"}).new_page()
+def test_english_ui(agents, base_url):
+    page = agents.new(locale="en-US")
     page.goto(f"{base_url}/")
     expect(page.get_by_role("button", name="Create a game")).to_be_visible()
     expect(page.locator("html")).to_have_attribute("lang", "en")

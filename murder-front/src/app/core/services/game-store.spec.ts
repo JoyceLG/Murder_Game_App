@@ -143,6 +143,21 @@ describe('GameStore', () => {
     await expectAsync(done).toBeRejected();
   });
 
+  it('counts the missions my own actions deal (ack and swap)', async () => {
+    store.apply(
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'ok' }] }),
+    );
+    expect(store.deals()).toBe(0);
+    const acked = store.acknowledge();
+    http.expectOne((r) => r.url.endsWith('/claims/h/ack')).flush(gameState({ version: 2 }));
+    await acked;
+    expect(store.deals()).toBe(1);
+    const swapped = store.swap();
+    http.expectOne((r) => r.url.endsWith('/swap-mission')).flush(gameState({ version: 3 }));
+    await swapped;
+    expect(store.deals()).toBe(2);
+  });
+
   it('has nothing to acknowledge while my claim is pending', async () => {
     store.apply(
       gameState({

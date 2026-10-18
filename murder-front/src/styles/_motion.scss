@@ -6,15 +6,17 @@
 
 $spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
 
-// A short colour wash over a card, drawn by its ::after.
-@mixin flash($color) {
+// A short colour wash over the card, drawn by its ::after (colour per moment: --flash).
+.anim-attacked,
+.anim-success,
+.anim-refused {
   position: relative;
   &::after {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    background: $color;
+    background: var(--flash);
     opacity: 0;
     pointer-events: none;
     animation: flash 700ms ease-out;
@@ -45,8 +47,8 @@ $spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
   }
 }
 .anim-attacked {
+  --flash: rgba(229, 72, 77, 0.45);
   animation: attacked 460ms $spring both;
-  @include flash(rgba(229, 72, 77, 0.45));
 }
 
 // --- success: confirmed, +1 point -----------------------------------------------------------
@@ -64,8 +66,8 @@ $spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
   }
 }
 .anim-success {
+  --flash: rgba(61, 214, 140, 0.4);
   animation: success 520ms $spring both;
-  @include flash(rgba(61, 214, 140, 0.4));
 }
 
 // --- refused: a brief shake -----------------------------------------------------------------
@@ -84,8 +86,8 @@ $spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
   }
 }
 .anim-refused {
+  --flash: rgba(229, 72, 77, 0.35);
   animation: refused 420ms ease-in-out both;
-  @include flash(rgba(229, 72, 77, 0.35));
 }
 
 // --- new mission dealt: the dossier slides in -----------------------------------------------
@@ -128,24 +130,25 @@ $spring: cubic-bezier(0.2, 0.9, 0.3, 1.25);
     transform: none;
   }
 }
+// (the score span is inline-block for good in _components.scss: transforms need a box)
 .anim-bump {
-  display: inline-block;
   animation: bump 520ms $spring;
 }
 .anim-dip {
-  display: inline-block;
   animation: dip 420ms ease-out;
 }
 
 // --- end of game: the headline is stamped -----------------------------------------------------
+// Grows from below its size and overshoots by 3% at most: a full-width headline scaled any
+// further would spill past a phone's viewport (horizontal scroll).
 @keyframes stamp {
   0% {
     opacity: 0;
-    transform: scale(1.35) rotate(-2deg);
+    transform: scale(0.7) rotate(-2deg);
   }
   70% {
     opacity: 1;
-    transform: scale(0.98);
+    transform: scale(1.03);
   }
   100% {
     transform: none;

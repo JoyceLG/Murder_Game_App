@@ -10,7 +10,7 @@ import { Replay } from '../replay/replay';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <!-- a new mission or target is dealt: replay the "deal" animation -->
-    <div class="dossier" [appReplay]="mission() + '|' + targetName()" replayClass="anim-deal">
+    <div class="dossier" [appReplay]="dealKey()" replayClass="anim-deal">
       <div class="drow">
         <span class="stamp">{{ 'dossier.active' | transloco }}</span>
         <span class="eyebrow">{{
@@ -29,4 +29,6 @@ export class Dossier {
   readonly targetName = input('');
   readonly code = input('');
   readonly killNo = input(1);
+  /** Changes on every deal (deal count + target id + mission): drives the deal animation. */
+  readonly dealKey = input('');
 }

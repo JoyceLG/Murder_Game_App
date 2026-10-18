@@ -136,6 +136,9 @@
 .hud .stat .val.warn {
   color: var(--amber);
 }
+.hud .stat .val span {
+  display: inline-block; // a box, so the score can scale/move (styles/_motion.scss)
+}
 
 /* ---- mission dossier ---- */
 .dossier {

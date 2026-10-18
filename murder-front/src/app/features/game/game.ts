@@ -26,6 +26,7 @@ type Confirming = 'swap' | 'end' | null;
           [targetName]="target()?.name ?? '—'"
           [code]="s.code"
           [killNo]="m.score + (myResult() === 'ok' ? 0 : 1)"
+          [dealKey]="deals() + '|' + (m.target_id ?? '') + '|' + m.mission"
         />
 
         @if (incoming(); as inc) {
@@ -169,6 +170,7 @@ export class Game {
   readonly incoming = this.store.incoming;
   readonly isPending = this.store.isPending;
   readonly myResult = this.store.myResult;
+  readonly deals = this.store.deals;
   readonly isHost = this.store.isHost;
   readonly ranking = this.store.ranking;
 

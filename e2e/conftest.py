@@ -10,12 +10,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 import httpx
 import pytest
+from playwright.sync_api import Browser, Page, expect
 from websockets.exceptions import ConnectionClosed
 from websockets.sync.client import ClientConnection, connect
 
@@ -126,3 +128,57 @@ class Live:
 
     def close(self) -> None:
         self.ws.close()
+
+
+class Agents:
+    """Players in their own browser contexts (French UI by default). Collects page errors and
+    console errors from every page, and closes every context at the end of the test."""
+
+    def __init__(self, browser: Browser, context_args: dict, base_url: str) -> None:
+        self._browser, self._args, self.base_url = browser, context_args, base_url
+        self._contexts = []
+        self.errors: list[str] = []
+
+    def new(self, locale: str = "fr-FR", **context_options) -> Page:
+        context = self._browser.new_context(**{**self._args, "locale": locale, **context_options})
+        self._contexts.append(context)
+        page = context.new_page()
+        page.on("pageerror", lambda exc: self.errors.append(f"pageerror: {exc}"))
+        page.on("console", lambda m: m.type == "error" and self.errors.append(f"console: {m.text}"))
+        return page
+
+    def create_game(self, page: Page, name: str = "Hôte") -> str:
+        """Create a game from the French home screen; return its code."""
+        page.goto(f"{self.base_url}/")
+        page.get_by_placeholder("Ex. Corbeau").fill(name)
+        page.get_by_role("button", name="Créer une partie").click()
+        page.wait_for_url(re.compile(r"/g/[A-Z0-9]{4}$"))
+        return page.url.rsplit("/", 1)[-1]
+
+    def join_game(self, page: Page, code: str, name: str = "Invité") -> None:
+        """Join from the French home screen."""
+        page.goto(f"{self.base_url}/")
+        page.get_by_placeholder("Ex. Corbeau").fill(name)
+        page.get_by_placeholder("••••").fill(code)
+        page.get_by_role("button", name="Rejoindre").click()
+        page.wait_for_url(f"**/g/{code}")
+
+    def start_two_player_game(self, host: Page, guest: Page) -> str:
+        code = self.create_game(host)
+        self.join_game(guest, code)
+        expect(host.get_by_text("Agents recrutés — 2")).to_be_visible()
+        host.get_by_role("button", name="Lancer l'opération").click()
+        host.wait_for_url(f"**/g/{code}/play")
+        guest.wait_for_url(f"**/g/{code}/play")
+        return code
+
+    def close(self) -> None:
+        for context in self._contexts:
+            context.close()
+
+
+@pytest.fixture
+def agents(browser, browser_context_args, base_url) -> Iterator[Agents]:
+    crew = Agents(browser, browser_context_args, base_url)
+    yield crew
+    crew.close()

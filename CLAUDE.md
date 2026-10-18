@@ -130,8 +130,10 @@ WebSocket protocol (`api/websocket.py`): connect to `/games/{code}/live`, send `
 Game-moment animations are plain CSS in `murder-front/src/styles/_motion.scss` (transform/opacity
 only, one-shot). Mount animations are classes on the element that appears (`anim-attacked`,
 `anim-success`, `anim-refused`, `anim-stamp`); change animations use the `shared/replay`
-directive (`[appReplay]="value" replayClass="…"`, never on first render: `anim-deal` on the
-dossier, `anim-bump`/`anim-dip` on the HUD score). The global `prefers-reduced-motion` rule in
+directive (`[appReplay]="value" replayClass="…"`, never on first render, applied after render:
+`anim-deal` on the dossier — keyed on `GameStore.deals` + target id + mission, i.e. identity, never
+on display text —, `anim-bump`/`anim-dip` on the HUD score). Scale animations of full-width
+elements must stay ≤ ~1.03 or they overflow a phone viewport (e2e checks the end headline). The global `prefers-reduced-motion` rule in
 `_base.scss` switches everything off, pseudo-elements included — keep new animations in CSS so it
 applies (e2e `test_motion.py` checks both modes).
 

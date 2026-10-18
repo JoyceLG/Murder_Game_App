@@ -3,7 +3,8 @@
 import re
 
 import pytest
-from playwright.sync_api import Browser, Page, expect
+from conftest import Agents
+from playwright.sync_api import Page, expect
 
 pytestmark = pytest.mark.browser
 
@@ -11,33 +12,18 @@ ANIMATION = "e => getComputedStyle(e).animationName"
 FLASH = "e => getComputedStyle(e, '::after').animationName"
 
 
-def _attacked_guest(
-    browser: Browser, browser_context_args: dict, base_url: str, motion: str
-) -> tuple[Page, Page]:
+def _attacked_guest(agents: Agents, motion: str) -> tuple[Page, Page]:
     """Host + guest in a started 2-player game; the host has claimed, so the guest is attacked."""
-    host = browser.new_context(**browser_context_args).new_page()
-    guest = browser.new_context(**{**browser_context_args, "reduced_motion": motion}).new_page()
-
-    host.goto(f"{base_url}/")
-    host.get_by_placeholder("Ex. Corbeau").fill("Hôte")
-    host.get_by_role("button", name="Créer une partie").click()
-    host.wait_for_url(re.compile(r"/g/[A-Z0-9]{4}$"))
-    code = host.url.rsplit("/", 1)[-1]
-    guest.goto(f"{base_url}/")
-    guest.get_by_placeholder("Ex. Corbeau").fill("Invité")
-    guest.get_by_placeholder("••••").fill(code)
-    guest.get_by_role("button", name="Rejoindre").click()
-    guest.wait_for_url(f"**/g/{code}")
-    host.get_by_role("button", name="Lancer l'opération").click()
-    guest.wait_for_url(f"**/g/{code}/play")
-    host.wait_for_url(f"**/g/{code}/play")
+    host = agents.new()
+    guest = agents.new(reduced_motion=motion)
+    agents.start_two_player_game(host, guest)
     host.get_by_role("button", name="J'ai éliminé ma cible").click()
     expect(guest.locator(".card.confirm")).to_be_visible()
     return host, guest
 
 
-def test_key_moments_are_animated(browser, browser_context_args, base_url):
-    host, guest = _attacked_guest(browser, browser_context_args, base_url, "no-preference")
+def test_key_moments_are_animated(agents):
+    host, guest = _attacked_guest(agents, "no-preference")
 
     attacked = guest.locator(".card.confirm")
     assert attacked.evaluate(ANIMATION) == "attacked"
@@ -55,10 +41,30 @@ def test_key_moments_are_animated(browser, browser_context_args, base_url):
     dossier = host.locator(".dossier")
     expect(dossier).to_have_class(re.compile(r"\banim-deal\b"))
     assert dossier.evaluate(ANIMATION) == "deal"
+    assert agents.errors == [], agents.errors
 
 
-def test_reduced_motion_switches_animations_off(browser, browser_context_args, base_url):
-    _, guest = _attacked_guest(browser, browser_context_args, base_url, "reduce")
+# Freeze the end headline's stamp animation at a given time (ms) and measure how far the page
+# then overflows sideways (> 0 = horizontal scroll on a phone).
+OVERFLOW_AT = """t => {
+  const animation = document.querySelector('h1.anim-stamp').getAnimations()[0];
+  animation.pause();
+  animation.currentTime = t;
+  return document.documentElement.scrollWidth - innerWidth;
+}"""
+
+
+def test_end_headline_stays_within_a_phone_screen(agents):
+    host, _ = _attacked_guest(agents, "no-preference")  # 390 px wide, like a phone
+    host.get_by_role("button", name="Terminer la partie").click()
+    host.get_by_role("button", name="Terminer maintenant").click()
+    host.wait_for_url("**/end")
+    for t in (0, 364, 520):  # start, overshoot peak (70 %), end
+        assert host.evaluate(OVERFLOW_AT, t) <= 0, f"horizontal overflow at {t} ms"
+
+
+def test_reduced_motion_switches_animations_off(agents):
+    _, guest = _attacked_guest(agents, "reduce")
     attacked = guest.locator(".card.confirm")
     expect(attacked).to_have_class(re.compile(r"\banim-attacked\b"))  # same markup...
     assert attacked.evaluate(ANIMATION) == "none"  # ...but nothing moves
