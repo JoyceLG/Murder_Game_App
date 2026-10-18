@@ -1,0 +1,11 @@
+# Local + CI tooling on top of the API's own dependencies.
+# Installed into the repo-root .venv by scripts/setup-dev.sh (see TESTING.md).
+-r murder-api/requirements.txt
+
+# Node.js inside the venv (no system install needed): `nodeenv -p` puts node/npm in .venv/bin.
+nodeenv==1.11.0
+# PostgreSQL 16 binaries as a wheel: lets integration tests run on a real Postgres without
+# Docker or sudo. Linux/macOS only; elsewhere use Docker or TEST_DATABASE_URL.
+pgserver==0.1.4; sys_platform != "win32"
+# End-to-end tests: real browser (Chromium, also used by Karma) + pytest plugin.
+-r requirements-e2e.txt

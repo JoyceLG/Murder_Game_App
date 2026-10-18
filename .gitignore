@@ -1,0 +1,7 @@
+# Dev environment created by `make setup` (scripts/setup-dev.sh)
+.venv/
+# Local test PostgreSQL data (scripts/pg.sh)
+.tools/
+# End-to-end artifacts: screenshots, Playwright traces, server logs
+e2e/test-results/
+__pycache__/
