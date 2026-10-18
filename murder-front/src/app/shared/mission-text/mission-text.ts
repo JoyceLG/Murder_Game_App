@@ -12,11 +12,8 @@ import { missionTranslationKey } from '../../core/missions';
   imports: [TranslocoPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { style: 'display: contents' },
-  template: `@if (key(); as k) {
-      {{ k | transloco }}
-    } @else {
-      {{ mission() }}
-    }`,
+  // One interpolation, no surrounding text nodes: the mission sits flush inside quotes.
+  template: `{{ key() ? (key()! | transloco) : mission() }}`,
 })
 export class MissionText {
   readonly mission = input<string | null | undefined>('');

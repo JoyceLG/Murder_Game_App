@@ -30,3 +30,9 @@ def test_effective_missions_dedups_preserving_order():
     eff = effective_missions(_game(MissionMode.AUGMENT, (MISSION_KEYS[0], "Unique")))
     assert eff.count(MISSION_KEYS[0]) == 1
     assert "Unique" in eff
+
+
+def test_pool_entries_shaped_like_catalogue_keys_are_never_dealt():
+    # Refused at input nowadays; a pool stored before that rule must not leak them either.
+    eff = effective_missions(_game(MissionMode.REPLACE, ("core.99", "Chante")))
+    assert eff == ("Chante",)

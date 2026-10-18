@@ -100,7 +100,7 @@ export class Settings {
 
   /** Custom missions may not look like catalogue keys (`core.NN`), which clients translate. */
   private refuseReserved(text: string): boolean {
-    if (!isCatalogueKey(text)) return false;
+    if (!isCatalogueKey(text.trim())) return false;
     this.toast.show(this.i18n.translate('common.missionReserved'), 'bad');
     return true;
   }

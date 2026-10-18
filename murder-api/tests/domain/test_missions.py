@@ -18,7 +18,7 @@ def test_every_catalogue_key_is_recognized():
     assert all(is_catalogue_key(key) for key in MISSION_KEYS)
 
 
-@pytest.mark.parametrize("value", ["core.7", "core.999", " core.12 "])
+@pytest.mark.parametrize("value", ["core.7", "core.999"])
 def test_anything_shaped_like_a_key_is_reserved(value):
     assert is_catalogue_key(value)
 
@@ -33,6 +33,10 @@ def test_anything_shaped_like_a_key_is_reserved(value):
         "score.01",
         "core.01 et un selfie",
         "mission.core.01",
+        " core.12 ",  # input is stripped before the check; dealt values are exact
+        "core.١٢",  # non-ASCII digits: \d would match, the front's [0-9] would not
+        "\ufeffcore.01",  # zero-width no-break space: str.strip() keeps it, JS trim() drops it
+        "core.01\n",
     ],
 )
 def test_custom_texts_are_not_keys(value):

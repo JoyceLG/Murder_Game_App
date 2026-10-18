@@ -18,9 +18,12 @@ MISSION_KEYS: tuple[str, ...] = tuple(f"core.{n:02d}" for n in range(1, CATALOGU
 
 # Anything shaped like a catalogue key is reserved: a custom mission must not look like one,
 # or clients would translate it (or show a missing key) instead of displaying it as typed.
-_CATALOGUE_KEY = re.compile(r"^core\.\d+$")
+# Exact match with ASCII digits only ([0-9], not \d which also matches other scripts' digits):
+# the front applies the very same rule (murder-front/src/app/core/missions.ts), character for
+# character, so both sides always agree on what is a key.
+_CATALOGUE_KEY = re.compile(r"core\.[0-9]+")
 
 
 def is_catalogue_key(mission: str) -> bool:
     """True for a value clients must translate, False for a literal custom mission text."""
-    return bool(_CATALOGUE_KEY.match(mission.strip()))
+    return _CATALOGUE_KEY.fullmatch(mission) is not None

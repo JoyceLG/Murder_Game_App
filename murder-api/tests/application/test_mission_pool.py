@@ -46,6 +46,13 @@ async def test_add_mission_rejects_catalogue_shaped_text(repo, notifier, text):
         await _add(repo, notifier).execute("ABCD", "h", text)
 
 
+async def test_add_mission_keeps_lookalikes_as_literal_text(repo, notifier):
+    # Not keys for the server *nor* for the front (same exact [0-9] rule): shown as typed.
+    await repo.save(make_game(["h"], code="ABCD", host="h"))
+    game = await _add(repo, notifier).execute("ABCD", "h", "core.١٢")
+    assert game.mission_pool[0].text == "core.١٢"
+
+
 async def test_add_mission_accepts_text_that_merely_mentions_a_key(repo, notifier):
     await repo.save(make_game(["h"], code="ABCD", host="h"))
     game = await _add(repo, notifier).execute("ABCD", "h", "core.01 est ma préférée")

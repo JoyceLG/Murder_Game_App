@@ -31,7 +31,8 @@ describe('MissionText', () => {
   const render = (mission: string) => {
     fixture.componentRef.setInput('mission', mission);
     fixture.detectChanges();
-    return (fixture.nativeElement as HTMLElement).textContent?.trim();
+    // No trim: the text must sit flush (it is wrapped in quotes in the claim card).
+    return (fixture.nativeElement as HTMLElement).textContent;
   };
 
   it('translates a catalogue mission in French', () => {
@@ -54,6 +55,11 @@ describe('MissionText', () => {
     expect(render('Chante en canon')).toBe('Chante en canon');
     TestBed.inject(TranslocoService).setActiveLang('en');
     expect(render('Chante en canon')).toBe('Chante en canon');
+  });
+
+  it('treats lookalikes as custom text, exactly like the API', () => {
+    expect(render('core.١٢')).toBe('core.١٢');
+    expect(render('\ufeffcore.07')).toBe('\ufeffcore.07');
   });
 
   it('never interprets custom text as a translation key or template', () => {

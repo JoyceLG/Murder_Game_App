@@ -94,12 +94,13 @@ describe('Game screen', () => {
   it('shows the incoming claim with the quoted mission', () => {
     setup(
       gameState({
-        claims: [{ atk: 'b', atk_name: 'B', target: 'h', mission: 'x', status: 'pending' }],
+        claims: [
+          { atk: 'b', atk_name: 'B', target: 'h', mission: 'Chante en canon', status: 'pending' },
+        ],
       }),
     );
     expect(text()).toContain('game.attempt');
-    expect(text()).toContain('game.quoteOpen');
-    expect(text()).toContain('x');
+    expect(text()).toContain('game.quoteOpenChante en canongame.quoteClose');
   });
 
   it('explains when the viewer is no longer part of the game', () => {
