@@ -205,6 +205,36 @@ describe('Game screen', () => {
     expect(button('game.confirm')).toBeDefined();
   });
 
+  // --- #15 animations --------------------------------------------------------------------
+
+  it('an elimination attempt on me drops in', () => {
+    setup(
+      gameState({
+        claims: [{ atk: 'b', atk_name: 'B', target: 'h', mission: 'x', status: 'pending' }],
+      }),
+    );
+    expect(fixture.nativeElement.querySelector('.card.confirm').classList).toContain(
+      'anim-attacked',
+    );
+  });
+
+  it('a confirmed claim pops in as a success, a refused one shakes', () => {
+    setup(
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'ok' }] }),
+    );
+    const ok = fixture.nativeElement.querySelector('.card.result') as HTMLElement;
+    expect(ok.classList).toContain('anim-success');
+    expect(ok.classList).not.toContain('anim-refused');
+
+    TestBed.resetTestingModule();
+    setup(
+      gameState({ claims: [{ atk: 'h', atk_name: 'H', target: 'b', mission: 'm', status: 'no' }] }),
+    );
+    const no = fixture.nativeElement.querySelector('.card.result') as HTMLElement;
+    expect(no.classList).toContain('anim-refused');
+    expect(no.classList).not.toContain('anim-success');
+  });
+
   it('explains when the viewer is no longer part of the game', () => {
     setup(gameState({ me: null }));
     expect(text()).toContain('common.notInGame');

@@ -30,6 +30,9 @@ export class GameStore {
 
   readonly state = signal<GameStateDto | null>(null);
   readonly live = signal<LiveStatus>('idle');
+  /** Missions dealt to me by my own actions (ack, swap): lets the dossier animate every deal,
+   *  even one that happens to repeat the same mission and target. */
+  readonly deals = signal(0);
   readonly connected = computed(() => this.live() === 'online');
   /** Set when a known session points at a game the server no longer has -> show the gone screen. */
   private readonly gone = signal(false);
@@ -154,7 +157,9 @@ export class GameStore {
     const claim = this.myClaim();
     if (!claim || claim.status === 'pending') return null;
     try {
-      return await this.call((code, auth) => this.api.acknowledge(code, claim.atk, auth));
+      const state = await this.call((code, auth) => this.api.acknowledge(code, claim.atk, auth));
+      this.deals.update((n) => n + 1);
+      return state;
     } catch (err) {
       // 404/409: nothing left to acknowledge (already done, or the game ended meanwhile, which
       // settles every claim). Not an error for the player: just show the current state.
@@ -165,8 +170,10 @@ export class GameStore {
     }
   }
 
-  swap(): Promise<GameStateDto> {
-    return this.call((code, auth) => this.api.swap(code, auth));
+  async swap(): Promise<GameStateDto> {
+    const state = await this.call((code, auth) => this.api.swap(code, auth));
+    this.deals.update((n) => n + 1);
+    return state;
   }
 
   /** Host only: end a running game now. */

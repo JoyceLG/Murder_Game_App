@@ -82,5 +82,6 @@ export function fakeStore(state: GameStateDto | null = gameState()) {
     isHost: signal(!!state?.me && state.host_id === state.me.id),
     remaining: signal(90),
     live: signal('online'),
+    deals: signal(0),
   });
 }

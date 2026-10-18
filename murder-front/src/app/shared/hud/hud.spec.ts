@@ -30,4 +30,20 @@ describe('Hud', () => {
     expect(fixture.componentInstance.warn()).toBeFalse();
     expect(fixture.nativeElement.querySelector('.val.warn')).toBeNull();
   });
+
+  it('bumps the score when it goes up and dips it when it goes down, not on first render', () => {
+    fixture.componentRef.setInput('score', 1);
+    fixture.detectChanges();
+    const score = () =>
+      (fixture.nativeElement as HTMLElement).querySelectorAll('.stat .val span')[0] as HTMLElement;
+    expect(score().className).toBe('');
+
+    fixture.componentRef.setInput('score', 2);
+    fixture.detectChanges();
+    expect(score().className).toBe('anim-bump');
+
+    fixture.componentRef.setInput('score', 1);
+    fixture.detectChanges();
+    expect(score().className).toBe('anim-dip');
+  });
 });

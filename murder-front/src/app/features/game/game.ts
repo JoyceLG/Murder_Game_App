@@ -26,10 +26,11 @@ type Confirming = 'swap' | 'end' | null;
           [targetName]="target()?.name ?? '—'"
           [code]="s.code"
           [killNo]="m.score + (myResult() === 'ok' ? 0 : 1)"
+          [dealKey]="deals() + '|' + (m.target_id ?? '') + '|' + m.mission"
         />
 
         @if (incoming(); as inc) {
-          <div class="card confirm" role="alert">
+          <div class="card confirm anim-attacked" role="alert">
             <span class="stamp">{{ 'game.attempt' | transloco }}</span>
             <p class="ctext">
               <b>{{ inc.atk_name }}</b> {{ 'game.claimedBy' | transloco }}<br />
@@ -51,7 +52,13 @@ type Confirming = 'swap' | 'end' | null;
         }
 
         @if (myResult(); as result) {
-          <div class="card result" [class.ok]="result === 'ok'" role="status">
+          <div
+            class="card result"
+            [class.ok]="result === 'ok'"
+            [class.anim-success]="result === 'ok'"
+            [class.anim-refused]="result === 'no'"
+            role="status"
+          >
             @if (result === 'ok') {
               <span class="stamp">{{ 'game.resultOk' | transloco }}</span>
               <p class="lead">{{ 'game.resultOkLead' | transloco }}</p>
@@ -163,6 +170,7 @@ export class Game {
   readonly incoming = this.store.incoming;
   readonly isPending = this.store.isPending;
   readonly myResult = this.store.myResult;
+  readonly deals = this.store.deals;
   readonly isHost = this.store.isHost;
   readonly ranking = this.store.ranking;
 
