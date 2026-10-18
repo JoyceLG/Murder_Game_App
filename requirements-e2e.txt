@@ -1,0 +1,3 @@
+# End-to-end test tooling (CI installs only this + the API requirements).
+playwright==1.64.0
+pytest-playwright==0.10.0

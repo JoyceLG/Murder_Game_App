@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from src.domain.errors import PlayerNotFound
 from src.domain.missions import MISSIONS
-from src.domain.models import Game, MissionMode
+from src.domain.models import Game, MissionMode, Player
 from src.domain.randomness import Picker, pick_mission_excluding
 
 
@@ -35,26 +35,82 @@ def effective_missions(game: Game) -> tuple[str, ...]:
     return tuple(out)
 
 
-def assign_targets(game: Game, picker: Picker) -> None:
-    """Give every player a target (never themselves) and a random mission.
+def _shuffled(ids: list[str], picker: Picker) -> list[str]:
+    """A random permutation of `ids`, drawn one pick at a time (the Picker only offers choice)."""
+    remaining = list(ids)
+    order: list[str] = []
+    while remaining:
+        pick = picker.choice(remaining)
+        remaining.remove(pick)
+        order.append(pick)
+    return order
 
-    Mirrors game.js start(): an independent per-player pick, not a derangement cycle.
-    With two players this yields the only possibility (A->B, B->A). Assumes >= 2 players;
-    the StartGame use case enforces that guard.
+
+def _hunt_counts(game: Game, candidates: list[str], ignore: str) -> dict[str, int]:
+    """How many players (other than `ignore`) currently hunt each candidate."""
+    return {
+        cid: sum(1 for p in game.players.values() if p.id != ignore and p.target_id == cid)
+        for cid in candidates
+    }
+
+
+def _least_hunted(game: Game, candidates: list[str], hunter_id: str, picker: Picker) -> str:
+    """Pick among `candidates` one that the fewest other players are already hunting."""
+    counts = _hunt_counts(game, candidates, ignore=hunter_id)
+    fewest = min(counts.values())
+    return picker.choice([cid for cid in candidates if counts[cid] == fewest])
+
+
+def assign_targets(game: Game, picker: Picker) -> None:
+    """Give every player a target and a random mission, as one random cycle.
+
+    Players are shuffled into a ring and each hunts the next one, so everybody hunts exactly one
+    player and is hunted by exactly one (a derangement: never yourself). With two players this
+    yields the only possibility (A->B, B->A). Assumes >= 2 players; StartGame enforces that.
     """
-    ids = list(game.players)
+    order = _shuffled(list(game.players), picker)
     missions = effective_missions(game)
-    for player in game.players.values():
-        candidates = [i for i in ids if i != player.id]
-        player.target_id = picker.choice(candidates)
+    for index, player_id in enumerate(order):
+        player = game.players[player_id]
+        player.target_id = order[(index + 1) % len(order)]
         player.mission = picker.choice(missions)
+
+
+def _retarget_after_kill(game: Game, attacker: Player, picker: Picker) -> None:
+    """Give a scoring attacker a new target while keeping "hunted exactly once" when possible.
+
+    Preferred: swap targets with another hunter P (attacker takes P's target, P takes the victim).
+    The ring stays a permutation, so nobody ends up hunted twice or not at all. P must not have a
+    pending claim (its target would change under it) and the swap must not make anyone hunt
+    themselves. When no such swap exists (e.g. three players), fall back to the least-hunted
+    player other than the victim; with two players the victim is the only choice.
+    """
+    victim = attacker.target_id
+    partners = [
+        p
+        for p in game.players.values()
+        if p.id not in (attacker.id, victim)
+        and p.target_id is not None
+        and p.target_id not in (attacker.id, victim)
+        and p.id not in game.claims
+    ]
+    if partners and victim is not None:
+        partner = picker.choice(partners)
+        attacker.target_id, partner.target_id = partner.target_id, victim
+        return
+
+    others = [i for i in game.players if i != attacker.id]
+    if not others:
+        return
+    pool = [i for i in others if i != victim] or others
+    attacker.target_id = _least_hunted(game, pool, attacker.id, picker)
 
 
 def resolve_claim(game: Game, attacker_id: str, confirmed: bool, picker: Picker) -> None:
     """Authoritatively resolve an attacker's elimination claim.
 
-    confirmed -> +1 score, a new target (preferring one != current, fallback any != self),
-                 and a new mission.
+    confirmed -> +1 score, a new target (see `_retarget_after_kill`: != current when possible,
+                 keeping everyone hunted exactly once when possible), and a new mission.
     refused   -> a new mission only; the target is unchanged.
     The claim is consumed (removed) in both cases.
 
@@ -68,28 +124,34 @@ def resolve_claim(game: Game, attacker_id: str, confirmed: bool, picker: Picker)
     missions = effective_missions(game)
     if confirmed:
         attacker.score += 1
-        others = [i for i in game.players if i != attacker_id]
-        pool = [i for i in others if i != attacker.target_id] or others
-        if pool:
-            attacker.target_id = picker.choice(pool)
-        attacker.mission = pick_mission_excluding(picker, attacker.mission, missions)
-    else:
-        attacker.mission = pick_mission_excluding(picker, attacker.mission, missions)
+        _retarget_after_kill(game, attacker, picker)
+    attacker.mission = pick_mission_excluding(picker, attacker.mission, missions)
 
     game.claims.pop(attacker_id, None)
 
 
-def reassign_targets_away_from(game: Game, removed_id: str, picker: Picker) -> None:
+def reassign_targets_away_from(
+    game: Game, removed_id: str, picker: Picker, inherited_target: str | None = None
+) -> None:
     """After a player leaves mid-game, give a fresh target to anyone who was hunting them.
 
     Without this, a hunter keeps a `target_id` pointing at a player who is gone — they could
-    never get a valid confirmation again. If the leaver was the only other player (one remains),
-    that lone player's target is cleared.
+    never get a valid confirmation again. The leaver's own target (`inherited_target`) goes to
+    their hunter, which closes the ring around the gap. Any other hunter (or one for whom that
+    would mean hunting themselves) gets the least-hunted remaining player. If the leaver was the
+    only other player (one remains), that lone player's target is cleared.
     """
+    heir = inherited_target if inherited_target in game.players else None
     for player in game.players.values():
-        if player.target_id == removed_id:
-            candidates = [i for i in game.players if i != player.id]
-            player.target_id = picker.choice(candidates) if candidates else None
+        if player.target_id != removed_id:
+            continue
+        if heir is not None and heir != player.id:
+            player.target_id, heir = heir, None
+            continue
+        candidates = [i for i in game.players if i != player.id]
+        player.target_id = (
+            _least_hunted(game, candidates, player.id, picker) if candidates else None
+        )
 
 
 def swap_mission(game: Game, player_id: str, picker: Picker) -> None:

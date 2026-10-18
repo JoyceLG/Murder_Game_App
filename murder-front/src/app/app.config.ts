@@ -33,7 +33,8 @@ export const appConfig: ApplicationConfig = {
       loader: TranslocoHttpLoader,
     }),
     // Set the active language (localStorage → device locale → fr) and revalidate the stored
-    // session before the app renders (survives refresh).
+    // session before the app renders (survives refresh). rehydrate() gives up waiting after
+    // REHYDRATE_TIMEOUT_MS, so an unreachable API never leaves a blank screen.
     provideAppInitializer(() => {
       inject(Language);
       return inject(GameStore).rehydrate();

@@ -1,9 +1,18 @@
 {
-  "app": { "tagline": "FILE //" },
-  "common": { "leave": "Leave", "home": "Home" },
+  "app": {
+    "tagline": "FILE //",
+    "reconnecting": "Connection lost — reconnecting…",
+    "restoring": "Reconnecting to the game…"
+  },
+  "common": {
+    "leave": "Leave",
+    "home": "Home",
+    "notInGame": "You are no longer part of this game.",
+    "actionFailed": "That didn't work, try again.",
+    "cancel": "Cancel"
+  },
   "home": {
     "eyebrow": "Classified assignments",
-    "title": "One mission.<br>One target.<br>Total discretion.",
     "lead": "Create an operation, share the code, eliminate your target without getting caught.",
     "agentName": "Your agent name",
     "agentPlaceholder": "e.g. Raven",
@@ -16,8 +25,15 @@
       "name": "Enter your name",
       "code": "Code must be 4 characters",
       "createFailed": "Could not create the game",
-      "notFound": "No game for this code"
-    }
+      "notFound": "No game for this code",
+      "full": "This game is full",
+      "started": "This game has already started",
+      "rateLimited": "Too many attempts, wait a minute",
+      "network": "Server unreachable"
+    },
+    "titleLine1": "One mission.",
+    "titleLine2": "One target.",
+    "titleLine3": "Total discretion."
   },
   "lobby": {
     "waiting": "Waiting room",
@@ -28,7 +44,10 @@
     "maxScore": "Points to win (optional)",
     "noLimit": "No limit",
     "rulesPlayers": "Max players: {{count}}",
-    "rulesGoalPoints": "Goal: {{count}} points",
+    "rulesGoalPoints": {
+      "one": "Goal: {{count}} point",
+      "other": "Goal: {{count}} points"
+    },
     "rulesGoalTime": "Goal: time limit",
     "configError": "Configuration rejected",
     "missionsTitle": "Custom missions",
@@ -43,7 +62,8 @@
     "start": "Launch the operation",
     "minPlayers": "At least 2 agents required",
     "standby": "Standby",
-    "waitingHost": "The host hasn't started yet…"
+    "waitingHost": "The host hasn't started yet…",
+    "startError": "Could not start the game"
   },
   "game": {
     "attempt": "Elimination attempt",
@@ -55,25 +75,50 @@
     "kill": "I eliminated my target",
     "swap": "Change mission",
     "swapCost": "−1 pt",
-    "ranking": "Standings"
+    "ranking": "Standings",
+    "quotedMission": "“{{mission}}”",
+    "claimFailed": "Claim refused",
+    "swapConfirm": "Swapping your mission costs 1 point.",
+    "swapYes": "Swap (−1 pt)",
+    "endGame": "End the game",
+    "endConfirm": "End the game for every agent?",
+    "endYes": "End now"
   },
-  "dossier": { "active": "Active assignment", "target": "Target:" },
-  "hud": { "time": "Time", "score": "Score", "rank": "Rank" },
+  "dossier": {
+    "active": "Active assignment",
+    "target": "Target:",
+    "number": "No. {{code}}-{{n}}"
+  },
+  "hud": {
+    "time": "Time",
+    "score": "Score",
+    "rank": "Rank"
+  },
   "seal": {
     "accessCode": "Access code",
     "share": "Share this code to recruit agents"
   },
-  "roster": { "you": "YOU", "host": "HOST" },
+  "roster": {
+    "you": "YOU",
+    "host": "HOST"
+  },
   "end": {
     "over": "Operation over",
-    "finalScore": "Final score: {{count}} elimination(s).",
+    "finalScore": {
+      "one": "Final score: {{count}} elimination.",
+      "other": "Final score: {{count}} eliminations."
+    },
     "finalRanking": "Final standings",
     "youWin": "You win the operation.",
     "someoneWins": "{{name}} wins.",
     "gameOver": "Game over",
-    "backHome": "Back to home"
+    "backHome": "Back to home",
+    "tie": "Tied at the top"
   },
-  "gone": { "offline": "Offline", "noGame": "The game no longer exists." },
+  "gone": {
+    "offline": "Offline",
+    "noGame": "The game no longer exists."
+  },
   "settings": {
     "language": "Language",
     "missionsTitle": "My custom missions",
@@ -84,6 +129,11 @@
     "save": "Save",
     "delete": "Delete",
     "empty": "No missions yet.",
-    "back": "Back"
+    "back": "Back",
+    "langName": {
+      "fr": "Français",
+      "en": "English"
+    },
+    "missionLabel": "Mission"
   }
 }

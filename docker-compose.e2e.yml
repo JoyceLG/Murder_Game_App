@@ -1,0 +1,10 @@
+# Override for the end-to-end suite (scripts/e2e.sh compose):
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up --build --wait
+# The suite creates many games from one address: lift the per-IP budgets (they have their own
+# unit tests) so they don't turn into flaky 429s.
+services:
+  api:
+    environment:
+      RATE_LIMIT_PER_MINUTE: "0"
+      CREATE_RATE_LIMIT_PER_MINUTE: "0"
+      LOOKUP_MISS_LIMIT_PER_MINUTE: "0"

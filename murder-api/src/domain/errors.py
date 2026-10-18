@@ -59,3 +59,15 @@ class ClaimNotFound(DomainError):
 
 class NotTheClaimTarget(DomainError):
     """Only the claim's target may confirm or deny it (server-side authority check)."""
+
+
+class CodeSpaceExhausted(DomainError):
+    """No free game code could be allocated (service temporarily unable to create games)."""
+
+
+class ConcurrentUpdate(DomainError):
+    """The game changed since it was loaded; the write was rejected (optimistic locking)."""
+
+
+class NotAuthenticated(DomainError):
+    """The caller's player id / session token pair does not match a player of this game."""

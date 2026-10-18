@@ -5,12 +5,18 @@
   </div>
 </header>
 
+@if (store.live() === 'offline') {
+  <div class="net-banner" role="status">{{ 'app.reconnecting' | transloco }}</div>
+}
+
 <main class="client">
   <router-outlet />
 </main>
 
-@if (toast.current(); as t) {
-  <div id="toast" class="show" [class.bad]="t.kind === 'bad'" [class.good]="t.kind === 'good'">
-    {{ t.text }}
-  </div>
-}
+<div class="toast-region" aria-live="polite" role="status">
+  @if (toast.current(); as t) {
+    <div id="toast" class="show" [class.bad]="t.kind === 'bad'" [class.good]="t.kind === 'good'">
+      {{ t.text }}
+    </div>
+  }
+</div>

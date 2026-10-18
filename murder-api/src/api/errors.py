@@ -5,8 +5,11 @@ from __future__ import annotations
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+from src.api.rate_limit import client_key
 from src.domain.errors import (
     ClaimNotFound,
+    CodeSpaceExhausted,
+    ConcurrentUpdate,
     DomainError,
     GameAlreadyStarted,
     GameNotFound,
@@ -16,6 +19,7 @@ from src.domain.errors import (
     MissionNotFound,
     NotAllowedToRemoveMission,
     NoTargetAssigned,
+    NotAuthenticated,
     NotEnoughPlayers,
     NotTheClaimTarget,
     NotTheHost,
@@ -38,11 +42,19 @@ STATUS_MAP: dict[type[DomainError], int] = {
     NotTheHost: 403,
     NotTheClaimTarget: 403,
     NotAllowedToRemoveMission: 403,
+    NotAuthenticated: 401,
+    ConcurrentUpdate: 409,
+    CodeSpaceExhausted: 503,
 }
 
 
-async def domain_error_handler(_request: Request, exc: DomainError) -> JSONResponse:
+async def domain_error_handler(request: Request | None, exc: DomainError) -> JSONResponse:
     status = STATUS_MAP.get(type(exc), 400)
+    if isinstance(exc, GameNotFound) and request is not None:
+        # Unknown codes count against the caller: this is what makes code enumeration slow.
+        limiter = getattr(request.app.state, "miss_limiter", None)
+        if limiter is not None:
+            limiter.hit(client_key(request))
     return JSONResponse(status_code=status, content={"error": type(exc).__name__})
 
 

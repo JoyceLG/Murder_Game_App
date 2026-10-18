@@ -240,7 +240,7 @@
 #toast {
   position: fixed;
   left: 50%;
-  bottom: 26px;
+  bottom: calc(env(safe-area-inset-bottom) + 26px);
   transform: translateX(-50%) translateY(20px);
   background: var(--ink);
   color: #0c0e12;
@@ -252,7 +252,7 @@
   pointer-events: none;
   transition: 0.25s ease;
   z-index: 60;
-  max-width: 90%;
+  max-width: calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right));
   text-align: center;
 }
 #toast.show {
@@ -266,4 +266,19 @@
 #toast.good {
   background: var(--ok);
   color: #06291a;
+}
+
+/* Connection-lost banner (realtime reconnecting). */
+.net-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  margin: 0 auto;
+  padding: 8px max(env(safe-area-inset-right), 16px) 8px max(env(safe-area-inset-left), 16px);
+  background: var(--signal);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-align: center;
 }

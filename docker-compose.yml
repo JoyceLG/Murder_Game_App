@@ -20,6 +20,12 @@ services:
     environment:
       # Setting DATABASE_URL flips the repository adapter from in-memory to PostgreSQL.
       DATABASE_URL: postgresql+asyncpg://postgres:murder@postgres:5432/murder
+      # The front (nginx) is same-origin, so CORS only matters for `ng serve` on :4200.
+      ALLOWED_ORIGINS: http://localhost:4200
+      # Trust X-Forwarded-For from the nginx container so rate limits apply per real client.
+      # (Port 8000 is also published for Swagger: direct callers could spoof the header — keep
+      # it unpublished in any real deployment.)
+      FORWARDED_ALLOW_IPS: "*"
     ports:
       - "8000:8000"
     depends_on:

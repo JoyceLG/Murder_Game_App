@@ -11,14 +11,14 @@ import { GameStore } from '../../core/services/game-store';
     <div class="card center">
       <span class="eyebrow">{{ 'gone.offline' | transloco }}</span>
       <p class="lead" style="margin-top: 8px">{{ 'gone.noGame' | transloco }}</p>
-      <button class="btn" (click)="leave()">{{ 'common.home' | transloco }}</button>
+      <button class="btn" (click)="home()">{{ 'common.home' | transloco }}</button>
     </div>
   `,
 })
 export class Gone {
   private store = inject(GameStore);
 
-  leave(): void {
-    void this.store.leave();
+  home(): void {
+    this.store.exit();
   }
 }

@@ -13,7 +13,7 @@ import { Toast } from './core/services/toast';
   templateUrl: './app.html',
 })
 export class App {
-  private store = inject(GameStore);
+  protected readonly store = inject(GameStore);
   private router = inject(Router);
   protected readonly session = inject(Session);
   protected readonly toast = inject(Toast);
@@ -40,6 +40,8 @@ export class App {
         return code ? `/g/${code}/end` : '/home';
       case 'gone':
         return '/gone';
+      case 'restoring':
+        return null; // stay put until the server answers (or the socket reconnects)
       default:
         return null;
     }
